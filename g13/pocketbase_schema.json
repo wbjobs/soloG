@@ -1,0 +1,807 @@
+[
+  {
+    "id": "users",
+    "name": "users",
+    "type": "auth",
+    "system": false,
+    "schema": [
+      {
+        "id": "name",
+        "name": "name",
+        "type": "text",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": 1,
+          "max": 50,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "avatar",
+        "name": "avatar",
+        "type": "file",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "maxSelect": 1,
+          "maxSize": 5242880,
+          "mimeTypes": ["image/jpeg", "image/png", "image/gif", "image/webp"],
+          "thumbs": null,
+          "protected": false
+        }
+      },
+      {
+        "id": "manager",
+        "name": "manager",
+        "type": "relation",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "collectionId": "users",
+          "cascadeDelete": false,
+          "minSelect": null,
+          "maxSelect": 1,
+          "displayFields": null
+        }
+      },
+      {
+        "id": "role",
+        "name": "role",
+        "type": "select",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "maxSelect": 1,
+          "values": ["user", "manager", "admin"]
+        }
+      }
+    ],
+    "indexes": [],
+    "listRule": "id = @request.auth.id",
+    "viewRule": "id = @request.auth.id",
+    "createRule": "",
+    "updateRule": "id = @request.auth.id",
+    "deleteRule": "id = @request.auth.id",
+    "options": {
+      "allowEmailAuth": true,
+      "allowOAuth2Auth": true,
+      "allowUsernameAuth": false,
+      "exceptEmailDomains": null,
+      "manageRule": null,
+      "minPasswordLength": 6,
+      "onlyEmailDomains": null,
+      "onlyVerified": false,
+      "requireEmail": true
+    }
+  },
+  {
+    "id": "tickets",
+    "name": "tickets",
+    "type": "base",
+    "system": false,
+    "schema": [
+      {
+        "id": "title",
+        "name": "title",
+        "type": "text",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": 1,
+          "max": 200,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "description",
+        "name": "description",
+        "type": "editor",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "convertUrls": false
+        }
+      },
+      {
+        "id": "status",
+        "name": "status",
+        "type": "select",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "maxSelect": 1,
+          "values": ["pending", "processing", "reviewing", "completed"]
+        }
+      },
+      {
+        "id": "priority",
+        "name": "priority",
+        "type": "select",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "maxSelect": 1,
+          "values": ["low", "medium", "high"]
+        }
+      },
+      {
+        "id": "creator",
+        "name": "creator",
+        "type": "relation",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "collectionId": "users",
+          "cascadeDelete": false,
+          "minSelect": null,
+          "maxSelect": 1,
+          "displayFields": null
+        }
+      },
+      {
+        "id": "assignee",
+        "name": "assignee",
+        "type": "relation",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "collectionId": "users",
+          "cascadeDelete": false,
+          "minSelect": null,
+          "maxSelect": 1,
+          "displayFields": null
+        }
+      },
+      {
+        "id": "watchers",
+        "name": "watchers",
+        "type": "relation",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "collectionId": "users",
+          "cascadeDelete": false,
+          "minSelect": null,
+          "maxSelect": null,
+          "displayFields": null
+        }
+      },
+      {
+        "id": "sla_deadline",
+        "name": "sla_deadline",
+        "type": "date",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": "",
+          "max": ""
+        }
+      },
+      {
+        "id": "escalation_level",
+        "name": "escalation_level",
+        "type": "number",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": 0,
+          "max": 3
+        }
+      },
+      {
+        "id": "total_hours",
+        "name": "total_hours",
+        "type": "number",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": 0,
+          "max": null
+        }
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX `idx_tickets_status` ON `tickets` (`status`)",
+      "CREATE INDEX `idx_tickets_creator` ON `tickets` (`creator`)",
+      "CREATE INDEX `idx_tickets_assignee` ON `tickets` (`assignee`)"
+    ],
+    "listRule": "@request.auth.id != \"\"",
+    "viewRule": "@request.auth.id != \"\"",
+    "createRule": "@request.auth.id != \"\"",
+    "updateRule": "@request.auth.id != \"\"",
+    "deleteRule": "@request.auth.id = creator.id",
+    "options": {}
+  },
+  {
+    "id": "comments",
+    "name": "comments",
+    "type": "base",
+    "system": false,
+    "schema": [
+      {
+        "id": "ticket",
+        "name": "ticket",
+        "type": "relation",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "collectionId": "tickets",
+          "cascadeDelete": true,
+          "minSelect": null,
+          "maxSelect": 1,
+          "displayFields": null
+        }
+      },
+      {
+        "id": "author",
+        "name": "author",
+        "type": "relation",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "collectionId": "users",
+          "cascadeDelete": false,
+          "minSelect": null,
+          "maxSelect": 1,
+          "displayFields": null
+        }
+      },
+      {
+        "id": "content",
+        "name": "content",
+        "type": "text",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": 1,
+          "max": 5000,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "mentions",
+        "name": "mentions",
+        "type": "relation",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "collectionId": "users",
+          "cascadeDelete": false,
+          "minSelect": null,
+          "maxSelect": null,
+          "displayFields": null
+        }
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX `idx_comments_ticket` ON `comments` (`ticket`)",
+      "CREATE INDEX `idx_comments_author` ON `comments` (`author`)"
+    ],
+    "listRule": "@request.auth.id != \"\"",
+    "viewRule": "@request.auth.id != \"\"",
+    "createRule": "@request.auth.id != \"\"",
+    "updateRule": "@request.auth.id = author.id",
+    "deleteRule": "@request.auth.id = author.id",
+    "options": {}
+  },
+  {
+    "id": "attachments",
+    "name": "attachments",
+    "type": "base",
+    "system": false,
+    "schema": [
+      {
+        "id": "ticket",
+        "name": "ticket",
+        "type": "relation",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "collectionId": "tickets",
+          "cascadeDelete": true,
+          "minSelect": null,
+          "maxSelect": 1,
+          "displayFields": null
+        }
+      },
+      {
+        "id": "uploader",
+        "name": "uploader",
+        "type": "relation",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "collectionId": "users",
+          "cascadeDelete": false,
+          "minSelect": null,
+          "maxSelect": 1,
+          "displayFields": null
+        }
+      },
+      {
+        "id": "file",
+        "name": "file",
+        "type": "file",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "maxSelect": 1,
+          "maxSize": 52428800,
+          "mimeTypes": [],
+          "thumbs": null,
+          "protected": false
+        }
+      },
+      {
+        "id": "filename",
+        "name": "filename",
+        "type": "text",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": 1,
+          "max": 255,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "size",
+        "name": "size",
+        "type": "number",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": 0,
+          "max": null
+        }
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX `idx_attachments_ticket` ON `attachments` (`ticket`)",
+      "CREATE INDEX `idx_attachments_uploader` ON `attachments` (`uploader`)"
+    ],
+    "listRule": "@request.auth.id != \"\"",
+    "viewRule": "@request.auth.id != \"\"",
+    "createRule": "@request.auth.id != \"\"",
+    "updateRule": "@request.auth.id = uploader.id",
+    "deleteRule": "@request.auth.id = uploader.id",
+    "options": {}
+  },
+  {
+    "id": "activity_logs",
+    "name": "activity_logs",
+    "type": "base",
+    "system": false,
+    "schema": [
+      {
+        "id": "ticket",
+        "name": "ticket",
+        "type": "relation",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "collectionId": "tickets",
+          "cascadeDelete": true,
+          "minSelect": null,
+          "maxSelect": 1,
+          "displayFields": null
+        }
+      },
+      {
+        "id": "actor",
+        "name": "actor",
+        "type": "relation",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "collectionId": "users",
+          "cascadeDelete": false,
+          "minSelect": null,
+          "maxSelect": 1,
+          "displayFields": null
+        }
+      },
+      {
+        "id": "action",
+        "name": "action",
+        "type": "select",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "maxSelect": 1,
+          "values": ["create_ticket", "change_status", "assign_ticket", "add_comment", "upload_attachment", "add_watcher", "add_time_log", "sla_escalation"]
+        }
+      },
+      {
+        "id": "old_value",
+        "name": "old_value",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 500,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "new_value",
+        "name": "new_value",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 500,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "metadata",
+        "name": "metadata",
+        "type": "json",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {}
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX `idx_activity_ticket` ON `activity_logs` (`ticket`)",
+      "CREATE INDEX `idx_activity_actor` ON `activity_logs` (`actor`)"
+    ],
+    "listRule": "@request.auth.id != \"\"",
+    "viewRule": "@request.auth.id != \"\"",
+    "createRule": "@request.auth.id != \"\"",
+    "updateRule": null,
+    "deleteRule": null,
+    "options": {}
+  },
+  {
+    "id": "notifications",
+    "name": "notifications",
+    "type": "base",
+    "system": false,
+    "schema": [
+      {
+        "id": "user",
+        "name": "user",
+        "type": "relation",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "collectionId": "users",
+          "cascadeDelete": true,
+          "minSelect": null,
+          "maxSelect": 1,
+          "displayFields": null
+        }
+      },
+      {
+        "id": "ticket",
+        "name": "ticket",
+        "type": "relation",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "collectionId": "tickets",
+          "cascadeDelete": true,
+          "minSelect": null,
+          "maxSelect": 1,
+          "displayFields": null
+        }
+      },
+      {
+        "id": "type",
+        "name": "type",
+        "type": "select",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "maxSelect": 1,
+          "values": ["status_change", "comment", "mention", "assignment", "attachment", "sla_escalation"]
+        }
+      },
+      {
+        "id": "message",
+        "name": "message",
+        "type": "text",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": 1,
+          "max": 500,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "read",
+        "name": "read",
+        "type": "bool",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {}
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX `idx_notifications_user` ON `notifications` (`user`)",
+      "CREATE INDEX `idx_notifications_read` ON `notifications` (`read`)"
+    ],
+    "listRule": "@request.auth.id = user.id",
+    "viewRule": "@request.auth.id = user.id",
+    "createRule": "@request.auth.id != \"\"",
+    "updateRule": "@request.auth.id = user.id",
+    "deleteRule": "@request.auth.id = user.id",
+    "options": {}
+  },
+  {
+    "id": "time_logs",
+    "name": "time_logs",
+    "type": "base",
+    "system": false,
+    "schema": [
+      {
+        "id": "ticket",
+        "name": "ticket",
+        "type": "relation",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "collectionId": "tickets",
+          "cascadeDelete": true,
+          "minSelect": null,
+          "maxSelect": 1,
+          "displayFields": null
+        }
+      },
+      {
+        "id": "user",
+        "name": "user",
+        "type": "relation",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "collectionId": "users",
+          "cascadeDelete": false,
+          "minSelect": null,
+          "maxSelect": 1,
+          "displayFields": null
+        }
+      },
+      {
+        "id": "hours",
+        "name": "hours",
+        "type": "number",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": 0.5,
+          "max": 24
+        }
+      },
+      {
+        "id": "description",
+        "name": "description",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 500,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "log_date",
+        "name": "log_date",
+        "type": "date",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": "",
+          "max": ""
+        }
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX `idx_time_logs_ticket` ON `time_logs` (`ticket`)",
+      "CREATE INDEX `idx_time_logs_user` ON `time_logs` (`user`)",
+      "CREATE INDEX `idx_time_logs_date` ON `time_logs` (`log_date`)"
+    ],
+    "listRule": "@request.auth.id != \"\"",
+    "viewRule": "@request.auth.id != \"\"",
+    "createRule": "@request.auth.id != \"\"",
+    "updateRule": "@request.auth.id = user.id",
+    "deleteRule": "@request.auth.id = user.id",
+    "options": {}
+  },
+  {
+    "id": "escalation_history",
+    "name": "escalation_history",
+    "type": "base",
+    "system": false,
+    "schema": [
+      {
+        "id": "ticket",
+        "name": "ticket",
+        "type": "relation",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "collectionId": "tickets",
+          "cascadeDelete": true,
+          "minSelect": null,
+          "maxSelect": 1,
+          "displayFields": null
+        }
+      },
+      {
+        "id": "from_user",
+        "name": "from_user",
+        "type": "relation",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "collectionId": "users",
+          "cascadeDelete": false,
+          "minSelect": null,
+          "maxSelect": 1,
+          "displayFields": null
+        }
+      },
+      {
+        "id": "to_user",
+        "name": "to_user",
+        "type": "relation",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "collectionId": "users",
+          "cascadeDelete": false,
+          "minSelect": null,
+          "maxSelect": 1,
+          "displayFields": null
+        }
+      },
+      {
+        "id": "reason",
+        "name": "reason",
+        "type": "text",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": 1,
+          "max": 500,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "level",
+        "name": "level",
+        "type": "number",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": 1,
+          "max": 3
+        }
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX `idx_esc_history_ticket` ON `escalation_history` (`ticket`)"
+    ],
+    "listRule": "@request.auth.id != \"\"",
+    "viewRule": "@request.auth.id != \"\"",
+    "createRule": "@request.auth.id != \"\"",
+    "updateRule": null,
+    "deleteRule": null,
+    "options": {}
+  },
+  {
+    "id": "sla_configs",
+    "name": "sla_configs",
+    "type": "base",
+    "system": false,
+    "schema": [
+      {
+        "id": "priority",
+        "name": "priority",
+        "type": "select",
+        "system": false,
+        "required": true,
+        "unique": true,
+        "options": {
+          "maxSelect": 1,
+          "values": ["low", "medium", "high"]
+        }
+      },
+      {
+        "id": "response_hours",
+        "name": "response_hours",
+        "type": "number",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": 1,
+          "max": 168
+        }
+      },
+      {
+        "id": "resolution_hours",
+        "name": "resolution_hours",
+        "type": "number",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": 1,
+          "max": 720
+        }
+      },
+      {
+        "id": "escalation_hours",
+        "name": "escalation_hours",
+        "type": "number",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": 1,
+          "max": 168
+        }
+      }
+    ],
+    "indexes": [],
+    "listRule": "@request.auth.id != \"\"",
+    "viewRule": "@request.auth.id != \"\"",
+    "createRule": "@request.auth.id != \"\"",
+    "updateRule": "@request.auth.id != \"\"",
+    "deleteRule": null,
+    "options": {}
+  }
+]
