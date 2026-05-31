@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>告警管理 - 实时日志分析平台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.6"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen" x-data="alertManager()">
+    <div class="flex h-screen">
+        <div class="w-64 bg-gray-800 p-4 flex flex-col border-r border-gray-700">
+            <h1 class="text-xl font-bold text-blue-400 mb-6">📊 日志分析平台</h1>
+            <nav class="space-y-2">
+                <a href="/" class="block px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                    📋 仪表盘
+                </a>
+                <a href="/alerts" class="block px-4 py-2 rounded-lg bg-blue-600 text-white">
+                    🔔 告警管理
+                </a>
+                <a href="/aggregation" class="block px-4 py-2 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                    📈 聚合分析
+                </a>
+            </nav>
+        </div>
+
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <div class="bg-gray-800 p-4 border-b border-gray-700 flex justify-between items-center">
+                <h2 class="text-lg font-semibold">告警规则管理</h2>
+                <div class="flex gap-2">
+                    <button @click="showChannelModal = true" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm transition-colors">
+                        + 通知通道
+                    </button>
+                    <button @click="showRuleModal = true" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm transition-colors">
+                        + 告警规则
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-auto p-4">
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div class="bg-gray-800 rounded-lg p-4">
+                        <div class="text-sm text-gray-400 mb-1">告警规则总数</div>
+                        <div class="text-2xl font-bold" x-text="rules.length || 0">0</div>
+                    </div>
+                    <div class="bg-gray-800 rounded-lg p-4">
+                        <div class="text-sm text-gray-400 mb-1">今日触发次数</div>
+                        <div class="text-2xl font-bold text-yellow-400" x-text="todayTriggerCount">0</div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-800 rounded-lg mb-6">
+                    <div class="p-4 border-b border-gray-700 flex justify-between items-center">
+                        <h3 class="font-semibold">告警规则</h3>
+                    </div>
+                    <div class="divide-y divide-gray-700">
+                        <template x-for="rule in rules" :key="rule.id">
+                            <div class="p-4 hover:bg-gray-750">
+                                <div class="flex justify-between items-start">
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2 mb-1">
+                                            <span class="font-medium" x-text="rule.name"></span>
+                                            <span class="px-2 py-0.5 rounded text-xs" :class="rule.is_enabled ? 'bg-green-900 text-green-300' : 'bg-gray-600 text-gray-400'" x-text="rule.is_enabled ? '已启用' : '已禁用'"></span>
+                                            <span class="px-2 py-0.5 rounded text-xs bg-blue-900 text-blue-300" x-text="`${rule.aggregation_name} ${rule.operator_name} ${rule.threshold}`"></span>
+                                            <span class="px-2 py-0.5 rounded text-xs bg-gray-700 text-gray-300" x-text="`${rule.window_minutes}分钟`"></span>
+                                        </div>
+                                        <div class="text-sm text-gray-400 mb-2" x-text="rule.description || '无描述'"></div>
+                                        <div class="flex flex-wrap gap-2 text-xs">
+                                            <template x-if="rule.query">
+                                                <span class="px-2 py-0.5 bg-gray-700 rounded">关键词: <span x-text="rule.query"></span></span>
+                                            </template>
+                                            <template x-if="rule.filter_severity !== null">
+                                                <span class="px-2 py-0.5 bg-gray-700 rounded">级别: <span x-text="rule.filter_severity"></span></span>
+                                            </template>
+                                            <template x-if="rule.filter_source">
+                                                <span class="px-2 py-0.5 bg-gray-700 rounded">来源: <span x-text="rule.filter_source"></span></span>
+                                            </template>
+                                            <template x-if="rule.filter_hostname">
+                                                <span class="px-2 py-0.5 bg-gray-700 rounded">主机: <span x-text="rule.filter_hostname"></span></span>
+                                            </template>
+                                        </div>
+                                        <div class="flex gap-4 mt-2 text-xs text-gray-500">
+                                            <span>触发次数: <span x-text="rule.trigger_count || 0"></span></span>
+                                            <span x-show="rule.last_triggered_at">上次触发: <span x-text="rule.last_triggered_at"></span></span>
+                                            <span x-show="rule.last_triggered_value">上次值: <span x-text="rule.last_triggered_value"></span></span>
+                                        </div>
+                                    </div>
+                                    <div class="flex gap-1 ml-4">
+                                        <button @click="testRule(rule.id)" class="p-2 text-gray-400 hover:text-yellow-400 transition-colors" title="测试">
+                                            ▶
+                                        </button>
+                                        <button @click="toggleRule(rule)" class="p-2 text-gray-400 hover:text-blue-400 transition-colors" :title="rule.is_enabled ? '禁用' : '启用'">
+                                            <span x-text="rule.is_enabled ? '⏸' : '▶'"></span>
+                                        </button>
+                                        <button @click="editRule(rule)" class="p-2 text-gray-400 hover:text-blue-400 transition-colors" title="编辑">
+                                            ✎
+                                        </button>
+                                        <button @click="deleteRule(rule.id)" class="p-2 text-gray-400 hover:text-red-400 transition-colors" title="删除">
+                                            🗑
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                        <div x-show="rules.length === 0" class="p-8 text-center text-gray-500">
+                            暂无告警规则，点击右上角创建
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-800 rounded-lg">
+                    <div class="p-4 border-b border-gray-700 flex justify-between items-center">
+                        <h3 class="font-semibold">最近告警事件</h3>
+                        <button @click="loadEvents()" class="text-sm text-blue-400 hover:text-blue-300">刷新</button>
+                    </div>
+                    <div class="divide-y divide-gray-700 max-h-96 overflow-y-auto">
+                        <template x-for="event in events" :key="event.id">
+                            <div class="p-3 hover:bg-gray-750">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <div class="flex items-center gap-2 mb-1">
+                                            <span class="font-medium text-sm" x-text="event.rule_name"></span>
+                                            <span class="px-2 py-0.5 rounded text-xs bg-red-900 text-red-300">触发</span>
+                                            <span class="text-xs text-gray-500" x-text="event.triggered_at"></span>
+                                        </div>
+                                        <div class="text-sm text-gray-300" x-text="event.message"></div>
+                                        <div class="text-xs text-gray-500 mt-1">
+                                            <span>触发值: <span x-text="event.trigger_value"></span></span>
+                                            <span class="mx-2">|</span>
+                                            <span>阈值: <span x-text="event.threshold"></span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                        <div x-show="events.length === 0" class="p-8 text-center text-gray-500">
+                            暂无告警事件
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div x-show="showChannelModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="showChannelModal = false">
+        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md">
+            <h3 class="text-lg font-semibold mb-4" x-text="editingChannel ? '编辑通知通道' : '创建通知通道'"></h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">通道名称</label>
+                    <input type="text" x-model="channelForm.name" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">通道类型</label>
+                    <select x-model="channelForm.channel_type" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500">
+                        <option value="webhook">Webhook</option>
+                        <option value="dingtalk">钉钉</option>
+                        <option value="feishu">飞书</option>
+                        <option value="email">邮件</option>
+                    </select>
+                </div>
+                <div x-show="['webhook', 'dingtalk', 'feishu'].includes(channelForm.channel_type)">
+                    <label class="block text-sm text-gray-400 mb-1">Webhook URL</label>
+                    <input type="text" x-model="channelForm.webhook_url" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500">
+                </div>
+                <div x-show="['dingtalk', 'feishu'].includes(channelForm.channel_type)">
+                    <label class="block text-sm text-gray-400 mb-1">签名密钥 (可选)</label>
+                    <input type="text" x-model="channelForm.secret" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500">
+                </div>
+                <div x-show="channelForm.channel_type === 'email'">
+                    <label class="block text-sm text-gray-400 mb-1">收件人邮箱 (逗号分隔)</label>
+                    <input type="text" x-model="channelForm.email_to" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500">
+                </div>
+                <div x-show="channelForm.channel_type === 'email'">
+                    <label class="block text-sm text-gray-400 mb-1">邮件主题前缀</label>
+                    <input type="text" x-model="channelForm.email_subject_prefix" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500">
+                </div>
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" x-model="channelForm.is_enabled" id="channel_enabled" class="rounded">
+                    <label for="channel_enabled" class="text-sm">启用通道</label>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 mt-6">
+                <button @click="showChannelModal = false" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg text-sm transition-colors">取消</button>
+                <button @click="saveChannel()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm transition-colors">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <div x-show="showRuleModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="showRuleModal = false">
+        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <h3 class="text-lg font-semibold mb-4" x-text="editingRule ? '编辑告警规则' : '创建告警规则'"></h3>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="col-span-2">
+                    <label class="block text-sm text-gray-400 mb-1">规则名称 *</label>
+                    <input type="text" x-model="ruleForm.name" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500">
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-sm text-gray-400 mb-1">规则描述</label>
+                    <textarea x-model="ruleForm.description" rows="2" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">搜索关键词</label>
+                    <input type="text" x-model="ruleForm.query" placeholder="如: error" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">日志级别</label>
+                    <select x-model="ruleForm.filter_severity" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500">
+                        <option :value="null">全部</option>
+                        <option :value="3">Error</option>
+                        <option :value="4">Warning</option>
+                        <option :value="6">Info</option>
+                        <option :value="7">Debug</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">日志来源</label>
+                    <input type="text" x-model="ruleForm.filter_source" placeholder="如: nginx" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">主机名</label>
+                    <input type="text" x-model="ruleForm.filter_hostname" placeholder="如: web-01" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">聚合方式 *</label>
+                    <select x-model="ruleForm.aggregation" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500">
+                        <option value="count">计数</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">比较符 *</label>
+                    <select x-model="ruleForm.operator" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500">
+                        <option value="gt">大于 (>)</option>
+                        <option value="gte">大于等于 (>=)</option>
+                        <option value="lt">小于 (<)</option>
+                        <option value="lte">小于等于 (<=)</option>
+                        <option value="eq">等于 (=)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">阈值 *</label>
+                    <input type="number" x-model.number="ruleForm.threshold" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">时间窗口 (分钟) *</label>
+                    <input type="number" x-model.number="ruleForm.window_minutes" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">冷却时间 (分钟) *</label>
+                    <input type="number" x-model.number="ruleForm.cooldown_minutes" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500">
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-sm text-gray-400 mb-1">通知通道</label>
+                    <div class="flex flex-wrap gap-2">
+                        <template x-for="channel in channels" :key="channel.id">
+                            <label class="flex items-center gap-1 px-3 py-1 bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-600 transition-colors">
+                                <input type="checkbox" :value="channel.id" x-model="ruleForm.channel_ids" class="rounded">
+                                <span class="text-sm" x-text="channel.name"></span>
+                                <span class="text-xs text-gray-400" x-text="`(${channel.channel_type_name})`"></span>
+                            </label>
+                        </template>
+                    </div>
+                </div>
+                <div class="col-span-2 flex items-center gap-2">
+                    <input type="checkbox" x-model="ruleForm.is_enabled" id="rule_enabled" class="rounded">
+                    <label for="rule_enabled" class="text-sm">启用规则</label>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 mt-6">
+                <button @click="showRuleModal = false" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg text-sm transition-colors">取消</button>
+                <button @click="saveRule()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm transition-colors">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function alertManager() {
+            return {
+                rules: [],
+                channels: [],
+                events: [],
+                todayTriggerCount: 0,
+                showChannelModal: false,
+                showRuleModal: false,
+                editingChannel: null,
+                editingRule: null,
+                channelForm: {
+                    name: '',
+                    channel_type: 'webhook',
+                    webhook_url: '',
+                    secret: '',
+                    email_to: '',
+                    email_subject_prefix: '[日志告警]',
+                    is_enabled: true,
+                },
+                ruleForm: {
+                    name: '',
+                    description: '',
+                    query: '',
+                    filter_severity: null,
+                    filter_source: '',
+                    filter_hostname: '',
+                    aggregation: 'count',
+                    operator: 'gt',
+                    threshold: 10,
+                    window_minutes: 5,
+                    cooldown_minutes: 10,
+                    channel_ids: [],
+                    is_enabled: true,
+                },
+
+                init() {
+                    this.loadChannels();
+                    this.loadRules();
+                    this.loadEvents();
+                },
+
+                async loadChannels() {
+                    try {
+                        const res = await fetch('/api/v1/alerts/channels');
+                        const data = await res.json();
+                        this.channels = data.channels || [];
+                    } catch (e) {
+                        console.error('Failed to load channels:', e);
+                    }
+                },
+
+                async loadRules() {
+                    try {
+                        const res = await fetch('/api/v1/alerts/rules');
+                        const data = await res.json();
+                        this.rules = data.rules || [];
+                    } catch (e) {
+                        console.error('Failed to load rules:', e);
+                    }
+                },
+
+                async loadEvents() {
+                    try {
+                        const res = await fetch('/api/v1/alerts/events?limit=50');
+                        const data = await res.json();
+                        this.events = data.events || [];
+                        const today = new Date().toDateString();
+                        this.todayTriggerCount = this.events.filter(e => 
+                            new Date(e.triggered_at).toDateString() === today
+                        ).length;
+                    } catch (e) {
+                        console.error('Failed to load events:', e);
+                    }
+                },
+
+                async saveChannel() {
+                    const url = this.editingChannel 
+                        ? `/api/v1/alerts/channels/${this.editingChannel.id}/update`
+                        : '/api/v1/alerts/channels/create';
+                    
+                    try {
+                        const res = await fetch(url, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.channelForm),
+                        });
+                        const data = await res.json();
+                        if (data.status === 'success') {
+                            this.showChannelModal = false;
+                            this.resetChannelForm();
+                            this.loadChannels();
+                        }
+                    } catch (e) {
+                        console.error('Failed to save channel:', e);
+                    }
+                },
+
+                resetChannelForm() {
+                    this.editingChannel = null;
+                    this.channelForm = {
+                        name: '',
+                        channel_type: 'webhook',
+                        webhook_url: '',
+                        secret: '',
+                        email_to: '',
+                        email_subject_prefix: '[日志告警]',
+                        is_enabled: true,
+                    };
+                },
+
+                async deleteChannel(id) {
+                    if (!confirm('确定删除此通知通道？')) return;
+                    try {
+                        const res = await fetch(`/api/v1/alerts/channels/${id}/delete`, { method: 'POST' });
+                        const data = await res.json();
+                        if (data.status === 'success') {
+                            this.loadChannels();
+                        }
+                    } catch (e) {
+                        console.error('Failed to delete channel:', e);
+                    }
+                },
+
+                async saveRule() {
+                    const url = this.editingRule 
+                        ? `/api/v1/alerts/rules/${this.editingRule.id}/update`
+                        : '/api/v1/alerts/rules/create';
+                    
+                    try {
+                        const res = await fetch(url, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.ruleForm),
+                        });
+                        const data = await res.json();
+                        if (data.status === 'success') {
+                            this.showRuleModal = false;
+                            this.resetRuleForm();
+                            this.loadRules();
+                        }
+                    } catch (e) {
+                        console.error('Failed to save rule:', e);
+                    }
+                },
+
+                editRule(rule) {
+                    this.editingRule = rule;
+                    this.ruleForm = {
+                        name: rule.name,
+                        description: rule.description || '',
+                        query: rule.query || '',
+                        filter_severity: rule.filter_severity,
+                        filter_source: rule.filter_source || '',
+                        filter_hostname: rule.filter_hostname || '',
+                        aggregation: rule.aggregation,
+                        operator: rule.operator,
+                        threshold: rule.threshold,
+                        window_minutes: rule.window_minutes,
+                        cooldown_minutes: rule.cooldown_minutes,
+                        channel_ids: [...(rule.channel_ids || [])],
+                        is_enabled: rule.is_enabled,
+                    };
+                    this.showRuleModal = true;
+                },
+
+                resetRuleForm() {
+                    this.editingRule = null;
+                    this.ruleForm = {
+                        name: '',
+                        description: '',
+                        query: '',
+                        filter_severity: null,
+                        filter_source: '',
+                        filter_hostname: '',
+                        aggregation: 'count',
+                        operator: 'gt',
+                        threshold: 10,
+                        window_minutes: 5,
+                        cooldown_minutes: 10,
+                        channel_ids: [],
+                        is_enabled: true,
+                    };
+                },
+
+                async toggleRule(rule) {
+                    try {
+                        const res = await fetch(`/api/v1/alerts/rules/${rule.id}/toggle`, { method: 'POST' });
+                        const data = await res.json();
+                        if (data.status === 'success') {
+                            rule.is_enabled = data.is_enabled;
+                        }
+                    } catch (e) {
+                        console.error('Failed to toggle rule:', e);
+                    }
+                },
+
+                async testRule(ruleId) {
+                    try {
+                        const res = await fetch('/api/v1/alerts/rules/test', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ rule_id: ruleId }),
+                        });
+                        const data = await res.json();
+                        if (data.status === 'success') {
+                            alert('测试任务已提交，稍后查看告警事件');
+                        }
+                    } catch (e) {
+                        console.error('Failed to test rule:', e);
+                    }
+                },
+
+                async deleteRule(id) {
+                    if (!confirm('确定删除此告警规则？')) return;
+                    try {
+                        const res = await fetch(`/api/v1/alerts/rules/${id}/delete`, { method: 'POST' });
+                        const data = await res.json();
+                        if (data.status === 'success') {
+                            this.loadRules();
+                        }
+                    } catch (e) {
+                        console.error('Failed to delete rule:', e);
+                    }
+                },
+            }
+        }
+    </script>
+</body>
+</html>

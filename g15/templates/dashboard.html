@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>实时日志分析平台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.6"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        .log-row:hover { background-color: rgba(59, 130, 246, 0.1); }
+        .severity-Emergency { background-color: #7f1d1d; color: #fee2e2; }
+        .severity-Alert { background-color: #991b1b; color: #fee2e2; }
+        .severity-Critical { background-color: #b91c1c; color: #fee2e2; }
+        .severity-Error { background-color: #dc2626; color: #fee2e2; }
+        .severity-Warning { background-color: #d97706; color: #fef3c7; }
+        .severity-Notice { background-color: #2563eb; color: #dbeafe; }
+        .severity-Info { background-color: #059669; color: #d1fae5; }
+        .severity-Debug { background-color: #6b7280; color: #f3f4f6; }
+        .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: #1f2937; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 3px; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen" x-data="logDashboard()">
+    <div class="flex h-screen">
+        <div class="w-64 bg-gray-800 p-4 flex flex-col border-r border-gray-700">
+            <h1 class="text-xl font-bold text-blue-400 mb-6">📊 日志分析平台</h1>
+            <div class="space-y-4">
+                <div class="bg-gray-700 rounded-lg p-4">
+                    <div class="text-sm text-gray-400">总日志数</div>
+                    <div class="text-2xl font-bold text-white" x-text="stats.total || 0">0</div>
+                </div>
+                <div class="bg-gray-700 rounded-lg p-4">
+                    <div class="text-sm text-gray-400">近1小时</div>
+                    <div class="text-2xl font-bold text-green-400" x-text="stats.last_hour || 0">0</div>
+                </div>
+                <div class="bg-gray-700 rounded-lg p-4">
+                    <div class="text-sm text-gray-400">实时连接</div>
+                    <div class="text-2xl font-bold" :class="wsConnected ? 'text-green-400' : 'text-red-400'" x-text="wsConnected ? '已连接' : '已断开'">已断开</div>
+                </div>
+            </div>
+            <div class="mt-6">
+                <h3 class="text-sm font-semibold text-gray-400 mb-3">按严重级别</h3>
+                <div class="space-y-2">
+                    <template x-for="item in stats.by_severity || []">
+                        <div class="flex justify-between text-sm">
+                            <span class="px-2 py-0.5 rounded text-xs" :class="'severity-' + item.severity_name" x-text="item.severity_name"></span>
+                            <span x-text="item.count"></span>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <div class="bg-gray-800 p-4 border-b border-gray-700">
+                <div class="flex gap-4 items-center">
+                    <div class="flex-1 relative">
+                        <input type="text" 
+                               x-model="searchQuery"
+                               @keyup.enter="searchLogs()"
+                               placeholder="搜索日志内容..." 
+                               class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 pl-10 focus:outline-none focus:border-blue-500">
+                        <svg class="absolute left-3 top-2.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </div>
+                    <select x-model="filterSeverity" @change="searchLogs()" class="bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500">
+                        <option value="">所有级别</option>
+                        <option value="0">Emergency</option>
+                        <option value="1">Alert</option>
+                        <option value="2">Critical</option>
+                        <option value="3">Error</option>
+                        <option value="4">Warning</option>
+                        <option value="5">Notice</option>
+                        <option value="6">Info</option>
+                        <option value="7">Debug</option>
+                    </select>
+                    <input type="text" 
+                           x-model="filterSource"
+                           @keyup.enter="searchLogs()"
+                           placeholder="来源..." 
+                           class="w-32 bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500">
+                    <button @click="searchLogs()" class="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-lg font-medium transition-colors">
+                        搜索
+                    </button>
+                    <button @click="loadStats()" class="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-lg transition-colors">
+                        🔄
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex-1 flex overflow-hidden">
+                <div class="flex-1 flex flex-col overflow-hidden">
+                    <div class="h-64 bg-gray-800 border-b border-gray-700 p-4">
+                        <h3 class="text-sm font-semibold text-gray-400 mb-2">日志趋势 (最近1小时)</h3>
+                        <div id="timeChart" class="h-48"></div>
+                    </div>
+                    <div class="h-48 bg-gray-800 border-b border-gray-700 p-4 flex">
+                        <div class="w-1/2 pr-2">
+                            <h3 class="text-sm font-semibold text-gray-400 mb-2">严重级别分布</h3>
+                            <div id="severityChart" class="h-32"></div>
+                        </div>
+                        <div class="w-1/2 pl-2">
+                            <h3 class="text-sm font-semibold text-gray-400 mb-2">来源分布</h3>
+                            <div id="sourceChart" class="h-32"></div>
+                        </div>
+                    </div>
+                    <div class="flex-1 overflow-hidden flex flex-col bg-gray-850">
+                        <div class="bg-gray-800 px-4 py-2 border-b border-gray-700 flex text-xs font-semibold text-gray-400">
+                            <div class="w-48">时间</div>
+                            <div class="w-24">级别</div>
+                            <div class="w-32">来源</div>
+                            <div class="w-32">主机</div>
+                            <div class="flex-1">消息</div>
+                        </div>
+                        <div class="flex-1 overflow-y-auto scrollbar-thin" id="logContainer">
+                            <template x-for="log in logs" :key="log.timestamp + log.source + log.severity">
+                                <div class="log-row px-4 py-2 border-b border-gray-700 flex text-sm cursor-pointer" @click="showLogDetail(log)">
+                                    <div class="w-48 text-gray-400 text-xs" x-text="formatTime(log.timestamp)"></div>
+                                    <div class="w-24">
+                                        <span class="px-2 py-0.5 rounded text-xs" :class="'severity-' + log.severity_name" x-text="log.severity_name"></span>
+                                    </div>
+                                    <div class="w-32 text-blue-400" x-text="log.source"></div>
+                                    <div class="w-32 text-gray-400" x-text="log.hostname || '-'"></div>
+                                    <div class="flex-1 truncate text-gray-200" x-text="log.message"></div>
+                                </div>
+                            </template>
+                            <div x-show="logs.length === 0" class="text-center py-12 text-gray-500">
+                                暂无日志数据
+                            </div>
+                            <div x-show="loadingMore" class="text-center py-4 text-gray-400">
+                                <div class="inline-block animate-spin rounded-full h-4 w-4 border-2 border-gray-400 border-t-transparent mr-2"></div>
+                                加载中...
+                            </div>
+                            <div x-show="!loadingMore && !hasMore && logs.length > 0" class="text-center py-4 text-gray-500 text-sm">
+                                已加载全部日志
+                            </div>
+                            <div x-show="!loadingMore && hasMore && logs.length > 0" class="text-center py-4">
+                                <button @click="loadMore()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm text-gray-300 transition-colors">
+                                    加载更多
+                                </button>
+                            </div>
+                        </div>
+
+                        <button @click="scrollToTop()" 
+                                x-show="logs.length > 20"
+                                class="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg transition-all z-50"
+                                title="回到顶部">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="w-96 bg-gray-800 border-l border-gray-700 flex flex-col" x-show="selectedLog">
+                    <div class="p-4 border-b border-gray-700 flex justify-between items-center">
+                        <h3 class="font-semibold">日志详情</h3>
+                        <button @click="selectedLog = null" class="text-gray-400 hover:text-white">✕</button>
+                    </div>
+                    <div class="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-4" x-show="selectedLog">
+                        <div>
+                            <div class="text-xs text-gray-400 mb-1">时间</div>
+                            <div x-text="selectedLog.timestamp"></div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-400 mb-1">级别</div>
+                            <span class="px-2 py-1 rounded text-sm" :class="'severity-' + selectedLog.severity_name" x-text="selectedLog.severity_name"></span>
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-400 mb-1">来源</div>
+                            <div class="text-blue-400" x-text="selectedLog.source"></div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-400 mb-1">主机</div>
+                            <div x-text="selectedLog.hostname || '-'"></div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-400 mb-1">消息</div>
+                            <div class="bg-gray-900 p-3 rounded text-sm font-mono whitespace-pre-wrap" x-text="selectedLog.message"></div>
+                        </div>
+                        <div x-show="selectedLog.fields && Object.keys(selectedLog.fields).length > 0">
+                            <div class="text-xs text-gray-400 mb-1">字段</div>
+                            <div class="bg-gray-900 p-3 rounded text-sm font-mono">
+                                <template x-for="[key, value] in Object.entries(selectedLog.fields)">
+                                    <div class="mb-1">
+                                        <span class="text-yellow-400" x-text="key"></span>: <span x-text="value"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-400 mb-1">原始日志</div>
+                            <div class="bg-gray-900 p-3 rounded text-xs font-mono text-gray-400 whitespace-pre-wrap" x-text="selectedLog.raw"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function logDashboard() {
+            return {
+                logs: [],
+                stats: {},
+                searchQuery: '',
+                filterSeverity: '',
+                filterSource: '',
+                selectedLog: null,
+                wsConnected: false,
+                ws: null,
+                timeChart: null,
+                severityChart: null,
+                sourceChart: null,
+                cursor: null,
+                hasMore: false,
+                loadingMore: false,
+
+                init() {
+                    this.loadStats();
+                    this.searchLogs();
+                    this.connectWebSocket();
+                    this.initCharts();
+                    setInterval(() => this.loadStats(), 30000);
+                    setInterval(() => this.loadAggregationData(), 60000);
+                    
+                    const container = document.getElementById('logContainer');
+                    container.addEventListener('scroll', () => {
+                        if (container.scrollTop + container.clientHeight >= container.scrollHeight - 100) {
+                            this.loadMore();
+                        }
+                    });
+                },
+
+                initCharts() {
+                    this.timeChart = echarts.init(document.getElementById('timeChart'));
+                    this.severityChart = echarts.init(document.getElementById('severityChart'));
+                    this.sourceChart = echarts.init(document.getElementById('sourceChart'));
+
+                    window.addEventListener('resize', () => {
+                        this.timeChart.resize();
+                        this.severityChart.resize();
+                        this.sourceChart.resize();
+                    });
+
+                    this.loadAggregationData();
+                },
+
+                async loadAggregationData() {
+                    try {
+                        const [timeRes, severityRes, sourceRes] = await Promise.all([
+                            fetch('/api/v1/logs/aggregate?field=time&limit=60'),
+                            fetch('/api/v1/logs/aggregate?field=severity'),
+                            fetch('/api/v1/logs/aggregate?field=source&limit=10')
+                        ]);
+
+                        const timeData = await timeRes.json();
+                        const severityData = await severityRes.json();
+                        const sourceData = await sourceRes.json();
+
+                        this.updateTimeChart(timeData.data || []);
+                        this.updateSeverityChart(severityData.data || []);
+                        this.updateSourceChart(sourceData.data || []);
+                    } catch (e) {
+                        console.error('Failed to load aggregation data:', e);
+                    }
+                },
+
+                updateTimeChart(data) {
+                    const sorted = data.slice().reverse();
+                    this.timeChart.setOption({
+                        backgroundColor: 'transparent',
+                        tooltip: { trigger: 'axis' },
+                        grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+                        xAxis: {
+                            type: 'category',
+                            data: sorted.map(d => d.time.substring(11, 16)),
+                            axisLine: { lineStyle: { color: '#4b5563' } },
+                            axisLabel: { color: '#9ca3af', fontSize: 10 }
+                        },
+                        yAxis: {
+                            type: 'value',
+                            axisLine: { lineStyle: { color: '#4b5563' } },
+                            axisLabel: { color: '#9ca3af', fontSize: 10 },
+                            splitLine: { lineStyle: { color: '#374151' } }
+                        },
+                        series: [{
+                            data: sorted.map(d => d.count),
+                            type: 'line',
+                            smooth: true,
+                            areaStyle: {
+                                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                    { offset: 0, color: 'rgba(59, 130, 246, 0.5)' },
+                                    { offset: 1, color: 'rgba(59, 130, 246, 0.05)' }
+                                ])
+                            },
+                            lineStyle: { color: '#3b82f6', width: 2 },
+                            itemStyle: { color: '#3b82f6' }
+                        }]
+                    });
+                },
+
+                updateSeverityChart(data) {
+                    const colors = ['#7f1d1d', '#991b1b', '#b91c1c', '#dc2626', '#d97706', '#2563eb', '#059669', '#6b7280'];
+                    this.severityChart.setOption({
+                        backgroundColor: 'transparent',
+                        tooltip: { trigger: 'item' },
+                        series: [{
+                            type: 'pie',
+                            radius: ['40%', '70%'],
+                            avoidLabelOverlap: false,
+                            itemStyle: { borderRadius: 4, borderColor: '#1f2937', borderWidth: 2 },
+                            label: { show: false },
+                            emphasis: {
+                                label: { show: true, fontSize: 12, fontWeight: 'bold', color: '#fff' }
+                            },
+                            data: data.map((d, i) => ({
+                                value: d.count,
+                                name: d.severity_name,
+                                itemStyle: { color: colors[d.severity] || colors[7] }
+                            }))
+                        }]
+                    });
+                },
+
+                updateSourceChart(data) {
+                    this.sourceChart.setOption({
+                        backgroundColor: 'transparent',
+                        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                        grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+                        xAxis: {
+                            type: 'value',
+                            axisLine: { lineStyle: { color: '#4b5563' } },
+                            axisLabel: { color: '#9ca3af', fontSize: 10 },
+                            splitLine: { lineStyle: { color: '#374151' } }
+                        },
+                        yAxis: {
+                            type: 'category',
+                            data: data.map(d => d.source).reverse(),
+                            axisLine: { lineStyle: { color: '#4b5563' } },
+                            axisLabel: { color: '#9ca3af', fontSize: 10 }
+                        },
+                        series: [{
+                            type: 'bar',
+                            data: data.map(d => d.count).reverse(),
+                            itemStyle: {
+                                color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+                                    { offset: 0, color: '#10b981' },
+                                    { offset: 1, color: '#059669' }
+                                ]),
+                                borderRadius: [0, 4, 4, 0]
+                            }
+                        }]
+                    });
+                },
+
+                async loadStats() {
+                    try {
+                        const res = await fetch('/api/v1/stats');
+                        const data = await res.json();
+                        this.stats = data.stats || {};
+                    } catch (e) {
+                        console.error('Failed to load stats:', e);
+                    }
+                },
+
+                async searchLogs() {
+                    const params = new URLSearchParams();
+                    if (this.searchQuery) params.append('q', this.searchQuery);
+                    if (this.filterSeverity) params.append('severity', this.filterSeverity);
+                    if (this.filterSource) params.append('source', this.filterSource);
+                    params.append('limit', 100);
+
+                    try {
+                        const res = await fetch(`/api/v1/logs/search?${params.toString()}`);
+                        const data = await res.json();
+                        this.logs = data.logs || [];
+                        this.cursor = data.cursor || null;
+                        this.hasMore = data.has_more || false;
+                    } catch (e) {
+                        console.error('Failed to search logs:', e);
+                    }
+                },
+
+                async loadMore() {
+                    if (this.loadingMore || !this.hasMore || !this.cursor) return;
+                    
+                    this.loadingMore = true;
+                    const params = new URLSearchParams();
+                    if (this.searchQuery) params.append('q', this.searchQuery);
+                    if (this.filterSeverity) params.append('severity', this.filterSeverity);
+                    if (this.filterSource) params.append('source', this.filterSource);
+                    params.append('limit', 100);
+                    params.append('last_timestamp', this.cursor.last_timestamp);
+                    params.append('last_source', this.cursor.last_source);
+                    params.append('last_severity', this.cursor.last_severity);
+                    params.append('direction', 'backward');
+
+                    try {
+                        const res = await fetch(`/api/v1/logs/search?${params.toString()}`);
+                        const data = await res.json();
+                        if (data.logs && data.logs.length > 0) {
+                            this.logs = this.logs.concat(data.logs);
+                            this.cursor = data.cursor || null;
+                            this.hasMore = data.has_more || false;
+                        } else {
+                            this.hasMore = false;
+                        }
+                    } catch (e) {
+                        console.error('Failed to load more logs:', e);
+                    } finally {
+                        this.loadingMore = false;
+                    }
+                },
+
+                scrollToTop() {
+                    const container = document.getElementById('logContainer');
+                    container.scrollTop = 0;
+                },
+
+                connectWebSocket() {
+                    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                    const wsUrl = `${protocol}//${window.location.host}/ws/logs/`;
+                    this.ws = new WebSocket(wsUrl);
+
+                    this.ws.onopen = () => {
+                        this.wsConnected = true;
+                        console.log('WebSocket connected');
+                    };
+
+                    this.ws.onclose = () => {
+                        this.wsConnected = false;
+                        console.log('WebSocket disconnected, reconnecting...');
+                        setTimeout(() => this.connectWebSocket(), 3000);
+                    };
+
+                    this.ws.onerror = (e) => {
+                        console.error('WebSocket error:', e);
+                    };
+
+                    this.ws.onmessage = (event) => {
+                        try {
+                            const data = JSON.parse(event.data);
+                            if (data.type === 'log') {
+                                this.addLog(data.log);
+                            }
+                        } catch (e) {
+                            console.error('Failed to parse WebSocket message:', e);
+                        }
+                    };
+                },
+
+                addLog(log) {
+                    const matchesFilter = this.checkLogFilter(log);
+                    if (matchesFilter) {
+                        this.logs.unshift(log);
+                        if (this.logs.length > 500) {
+                            this.logs.pop();
+                        }
+                    }
+
+                    if (this.stats.by_severity) {
+                        const sevItem = this.stats.by_severity.find(s => s.severity === log.severity);
+                        if (sevItem) {
+                            sevItem.count++;
+                        }
+                    }
+                },
+
+                checkLogFilter(log) {
+                    if (this.searchQuery && !log.message.includes(this.searchQuery) && !log.raw.includes(this.searchQuery)) {
+                        return false;
+                    }
+                    if (this.filterSeverity && log.severity !== parseInt(this.filterSeverity)) {
+                        return false;
+                    }
+                    if (this.filterSource && log.source !== this.filterSource) {
+                        return false;
+                    }
+                    return true;
+                },
+
+                showLogDetail(log) {
+                    this.selectedLog = log;
+                },
+
+                formatTime(ts) {
+                    if (!ts) return '';
+                    const d = new Date(ts);
+                    return d.toLocaleString('zh-CN', {
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    });
+                }
+            }
+        }
+    </script>
+</body>
+</html>
