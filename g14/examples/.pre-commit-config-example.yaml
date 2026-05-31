@@ -1,0 +1,35 @@
+# 代码审查 pre-commit 配置示例
+# 将此文件复制为 .pre-commit-config.yaml 并放置在项目根目录
+
+repos:
+  - repo: https://github.com/your-org/code-review-cli
+    rev: v1.0.0
+    hooks:
+      - id: code-review
+        name: 代码审查
+        description: 使用本地大模型审查代码质量
+        # 环境变量配置
+        # args: []
+      # 自动修复模式（可选）
+      # - id: code-review-autofix
+      #   name: 代码审查与自动修复
+
+  # 可以配合其他常用 hooks 使用
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+
+  - repo: https://github.com/psf/black
+    rev: 24.1.0
+    hooks:
+      - id: black
+        language_version: python3.11
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8

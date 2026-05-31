@@ -1,0 +1,15 @@
+README.md
+pyproject.toml
+src/code_review/__init__.py
+src/code_review/analyzer.py
+src/code_review/cli.py
+src/code_review/llm_client.py
+src/code_review/reporter.py
+src/code_review/rules.py
+src/code_review/scanner.py
+src/code_review_cli.egg-info/PKG-INFO
+src/code_review_cli.egg-info/SOURCES.txt
+src/code_review_cli.egg-info/dependency_links.txt
+src/code_review_cli.egg-info/entry_points.txt
+src/code_review_cli.egg-info/requires.txt
+src/code_review_cli.egg-info/top_level.txt

@@ -1,0 +1,55 @@
+{
+  "summary": {
+    "total_files": 1,
+    "files_with_issues": 1,
+    "total_issues": 2,
+    "critical": 1,
+    "high": 1,
+    "medium": 0,
+    "low": 0,
+    "total_prompt_tokens": 100,
+    "total_completion_tokens": 200,
+    "total_latency_ms": 50.0
+  },
+  "files": [
+    {
+      "file_path": "E:\\soloG\\g14\\examples\\bad_code.py",
+      "language": "python",
+      "issues": [
+        {
+          "file_path": "E:\\soloG\\g14\\examples\\bad_code.py",
+          "line": 15,
+          "severity": "high",
+          "category": "bug",
+          "message": "空的 except 块可能会隐藏错误",
+          "suggestion": "指定具体的异常类型，或至少记录错误日志",
+          "rule_id": null,
+          "code_snippet": "    except:\n        pass\n\nclass MyClass:\n    def __init__(self,name,value):"
+        },
+        {
+          "file_path": "E:\\soloG\\g14\\examples\\bad_code.py",
+          "line": 58,
+          "severity": "critical",
+          "category": "security",
+          "message": "使用了 eval() 可能导致代码注入",
+          "suggestion": "避免使用 eval()，使用更安全的替代方案",
+          "rule_id": null,
+          "code_snippet": ""
+        }
+      ],
+      "prompt_tokens": 100,
+      "completion_tokens": 200,
+      "latency_ms": 50.0,
+      "error": null,
+      "summary": {
+        "total": 2,
+        "critical": 1,
+        "high": 1,
+        "medium": 0,
+        "low": 0
+      }
+    }
+  ],
+  "errors": [],
+  "generated_at": "2026-05-18T13:11:58.934972"
+}

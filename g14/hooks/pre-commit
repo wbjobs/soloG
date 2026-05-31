@@ -1,0 +1,150 @@
+#!/usr/bin/env python3
+"""pre-commit hook 脚本 - 在提交前审查代码"""
+
+import sys
+import os
+from pathlib import Path
+from typing import List
+
+
+def run_code_review(files: List[str]) -> int:
+    """运行代码审查
+
+    Args:
+        files: 要审查的文件列表
+
+    Returns:
+        退出码：0 表示通过，1 表示发现问题
+    """
+    try:
+        from code_review.scanner import CodeScanner
+        from code_review.llm_client import MockLLMClient
+        from code_review.analyzer import CodeAnalyzer
+        from code_review.reporter import get_reporter
+    except ImportError:
+        sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+        from code_review.scanner import CodeScanner
+        from code_review.llm_client import MockLLMClient
+        from code_review.analyzer import CodeAnalyzer
+        from code_review.reporter import get_reporter
+
+    model_path = os.environ.get("CODE_REVIEW_MODEL")
+    use_mock = os.environ.get("CODE_REVIEW_MOCK", "true").lower() == "true"
+    enabled_rulesets = os.environ.get("CODE_REVIEW_RULESETS", "pep8,eslint").split(",")
+    severity_threshold = os.environ.get("CODE_REVIEW_SEVERITY", "low")
+    auto_fix = os.environ.get("CODE_REVIEW_AUTOFIX", "false").lower() == "true"
+
+    if not files:
+        return 0
+
+    print("🔍 代码审查中...")
+    print(f"   检查 {len(files)} 个文件")
+
+    scanner = CodeScanner()
+
+    code_files = []
+    for file_path in files:
+        path = Path(file_path)
+        if path.is_file():
+            result = scanner.scan(path)
+            if result and result.files:
+                code_files.extend(result.files)
+
+    if not code_files:
+        print("✅ 没有可分析的文件")
+        return 0
+
+    if use_mock:
+        llm_client = MockLLMClient()
+    else:
+        if not model_path:
+            print("⚠️  未设置 CODE_REVIEW_MODEL 环境变量，使用模拟模式")
+            llm_client = MockLLMClient()
+        else:
+            try:
+                from code_review.llm_client import LLMClient, LLMConfig
+                config = LLMConfig(model_path=model_path)
+                llm_client = LLMClient(config)
+            except Exception as e:
+                print(f"⚠️  初始化 LLM 客户端失败: {e}")
+                print("   回退到模拟模式")
+                llm_client = MockLLMClient()
+
+    analyzer = CodeAnalyzer(
+        llm_client=llm_client,
+        enabled_rulesets=enabled_rulesets,
+        generate_fixes=auto_fix,
+    )
+
+    report = analyzer.analyze_files(code_files)
+
+    if report.summary.total_issues == 0:
+        print("✅ 代码审查通过！")
+        return 0
+
+    severity_order = {"critical": 4, "high": 3, "medium": 2, "low": 1, "info": 0}
+    threshold = severity_order.get(severity_threshold, 0)
+
+    blocking_issues = 0
+    for file_result in report.files:
+        for issue in file_result.issues:
+            if severity_order.get(issue.severity.value, 0) >= threshold:
+                blocking_issues += 1
+
+    reporter = get_reporter("console")
+    print(reporter.generate(report))
+
+    if auto_fix:
+        from code_review.fixer import CodeFixer
+        fixer = CodeFixer()
+
+        total_fixed = 0
+        for file_result in report.files:
+            patches = file_result.get_patches()
+            if patches:
+                fix_result = fixer.apply_and_save(file_result.file_path, patches)
+                total_fixed += fix_result.applied_count
+                if fix_result.applied_count > 0:
+                    print(f"🔧 已修复 {fix_result.applied_count} 个问题: {file_result.file_path}")
+
+        if total_fixed > 0:
+            print(f"\n⚠️  已自动修复 {total_fixed} 个问题")
+            print("   请检查修改后重新提交")
+            return 1
+
+    if blocking_issues > 0:
+        print(f"\n❌ 发现 {blocking_issues} 个需要关注的问题")
+        print("   请修复后重新提交，或使用 --no-verify 跳过检查")
+        return 1
+    else:
+        print(f"\n⚠️  发现 {report.summary.total_issues} 个问题（低于阈值 {severity_threshold}）")
+        print("   提交已允许，但建议修复这些问题")
+        return 0
+
+
+def main() -> int:
+    """pre-commit hook 主函数"""
+    files = sys.argv[1:] if len(sys.argv) > 1 else []
+
+    if not files:
+        from subprocess import run, PIPE
+        try:
+            result = run(
+                ["git", "diff", "--cached", "--name-only", "--diff-filter=ACM"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            files = [f.strip() for f in result.stdout.strip().split("\n") if f.strip()]
+        except Exception:
+            pass
+
+    if not files:
+        print("✅ 没有暂存的文件需要检查")
+        return 0
+
+    return run_code_review(files)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

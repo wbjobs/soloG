@@ -1,0 +1,18 @@
+- id: code-review
+  name: 代码审查
+  description: 使用本地大模型审查代码质量
+  entry: hooks/pre-commit
+  language: script
+  types: [python, javascript, typescript, jsx, tsx]
+  pass_filenames: true
+  additional_dependencies: []
+
+- id: code-review-autofix
+  name: 代码审查与自动修复
+  description: 使用本地大模型审查并自动修复代码问题
+  entry: hooks/pre-commit
+  language: script
+  types: [python, javascript, typescript, jsx, tsx]
+  pass_filenames: true
+  additional_dependencies: []
+  args: []

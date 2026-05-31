@@ -1,0 +1,47 @@
+# code-review-cli 配置文件
+
+# LLM 模型配置
+llm:
+  # 模型文件路径 (.gguf 格式)
+  model_path: ./models/code-review-model.gguf
+  # 上下文窗口大小
+  n_ctx: 4096
+  # 线程数
+  n_threads: 4
+  # GPU 层数量 (0 表示使用 CPU)
+  n_gpu_layers: 0
+  # 生成温度
+  temperature: 0.1
+  # 最大生成 token 数
+  max_tokens: 2048
+  # 显示详细日志
+  verbose: false
+
+# 规则集配置
+rulesets:
+  # 启用的规则集
+  enabled:
+    - pep8
+    - eslint
+  # 自定义规则
+  custom: []
+
+# 扫描配置
+scanner:
+  # 忽略的文件模式
+  ignore_patterns:
+    - .git/
+    - __pycache__/
+    - node_modules/
+    - dist/
+    - build/
+    - "*.min.js"
+  # 最大文件大小 (字节)
+  max_file_size: 10485760
+
+# 输出配置
+output:
+  # 默认输出格式: console, json, markdown
+  default_format: console
+  # 默认输出目录
+  output_dir: ./reports

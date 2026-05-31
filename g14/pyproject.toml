@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "code-review-cli"
+version = "0.1.0"
+description = "本地代码审查 CLI 工具，使用 LLM 分析代码质量"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{ name = "Code Review Team" }]
+license = { text = "MIT" }
+dependencies = [
+    "click>=8.1.0",
+    "llama-cpp-python>=0.2.0",
+    "pyyaml>=6.0",
+    "pydantic>=2.0",
+    "pathspec>=0.11.0",
+]
+
+[project.scripts]
+code-review = "code_review.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
