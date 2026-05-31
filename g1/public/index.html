@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC 屏幕共享与远程控制</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>WebRTC 屏幕共享与远程控制平台</h1>
+        </header>
+
+        <div id="auth-section" class="card">
+            <h2>创建或加入房间</h2>
+            <div class="button-group">
+                <button id="create-room-btn" class="btn btn-primary">创建房间</button>
+            </div>
+            <div class="divider">或</div>
+            <div class="input-group">
+                <input type="text" id="room-id-input" placeholder="输入房间号">
+                <button id="join-room-btn" class="btn btn-secondary">加入房间</button>
+            </div>
+        </div>
+
+        <div id="room-section" class="card hidden">
+            <div class="room-info">
+                <div class="room-id-display">
+                    <span>房间号:</span>
+                    <span id="current-room-id"></span>
+                    <button id="copy-room-id" class="btn btn-small">复制</button>
+                </div>
+                <div class="role-display">
+                    <span>身份:</span>
+                    <span id="current-role"></span>
+                </div>
+            </div>
+
+            <div id="host-view" class="hidden">
+                <h3>共享屏幕</h3>
+                <div class="button-group">
+                    <button id="start-share-btn" class="btn btn-primary">开始屏幕共享</button>
+                    <button id="stop-share-btn" class="btn btn-danger hidden">停止共享</button>
+                </div>
+                <div id="guest-status" class="status-bar hidden">
+                    <span>访客已连接</span>
+                </div>
+                <div id="permission-panel" class="permission-panel hidden">
+                    <h4>权限管理</h4>
+                    <div class="permission-status">
+                        <span>当前权限:</span>
+                        <span id="current-permission" class="permission-badge">仅查看</span>
+                    </div>
+                    <div id="control-request" class="control-request hidden">
+                        <p>访客请求远程控制权限</p>
+                        <div class="permission-options">
+                            <label>
+                                <input type="radio" name="permission-level" value="control" checked>
+                                完全控制（鼠标 + 键盘）
+                            </label>
+                            <label>
+                                <input type="radio" name="permission-level" value="mouse">
+                                仅鼠标控制
+                            </label>
+                        </div>
+                        <div class="button-group">
+                            <button id="approve-control-btn" class="btn btn-success">批准</button>
+                            <button id="deny-control-btn" class="btn btn-danger">拒绝</button>
+                        </div>
+                    </div>
+                    <div id="control-active" class="control-active-panel hidden">
+                        <div class="permission-status">
+                            <span class="status-indicator active"></span>
+                            <span>远程控制已启用</span>
+                            <span id="permission-level-badge" class="permission-badge success">完全控制</span>
+                        </div>
+                        <div class="button-group">
+                            <button id="revoke-control-btn" class="btn btn-warning btn-small">临时暂停</button>
+                            <button id="disable-control-btn" class="btn btn-danger btn-small">收回权限</button>
+                        </div>
+                    </div>
+                    <div id="control-suspended" class="status-bar warning hidden">
+                        <span>控制已暂停</span>
+                        <button id="resume-control-btn" class="btn btn-success btn-small">恢复控制</button>
+                    </div>
+                </div>
+                <video id="local-video" autoplay playsinline muted></video>
+            </div>
+
+            <div id="guest-view" class="hidden">
+                <h3>远程屏幕</h3>
+                <div class="guest-permission-info">
+                    <div class="permission-status">
+                        <span>当前权限:</span>
+                        <span id="guest-permission" class="permission-badge">仅查看</span>
+                    </div>
+                </div>
+                <div class="button-group">
+                    <button id="request-control-btn" class="btn btn-primary">请求远程控制</button>
+                    <button id="release-control-btn" class="btn btn-warning hidden">释放控制权</button>
+                </div>
+                <div id="control-status" class="status-bar hidden">
+                    <span id="control-status-text"></span>
+                </div>
+                <div class="video-wrapper">
+                    <video id="remote-video" autoplay playsinline></video>
+                    <div id="control-overlay" class="control-overlay hidden"></div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>控制日志</h3>
+                <button id="refresh-logs-btn" class="btn btn-small">刷新日志</button>
+                <div id="logs-container" class="logs-container">
+                    <p class="empty-logs">暂无日志</p>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button id="leave-room-btn" class="btn btn-danger">离开房间</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="js/webrtc.js"></script>
+    <script src="js/remote-control.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "webrtc-screen-share",
+  "version": "1.0.0",
+  "description": "WebRTC 屏幕共享与远程控制平台",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2"
+  }
+}
