@@ -1,0 +1,39 @@
+[gd_scene load_steps=7 format=3 uid="uid://lever12345"]
+
+[ext_resource type="Script" path="res://scripts/lever.gd" id="1_lev"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_base"]
+size = Vector3(0.8, 0.2, 0.8)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_arm"]
+size = Vector3(0.1, 1.0, 0.1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_base"]
+albedo_color = Color(0.3, 0.3, 0.3, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_arm"]
+albedo_color = Color(0.8, 0.2, 0.2, 1)
+
+[node name="Lever" type="StaticBody3D"]
+script = ExtResource("1_lev")
+collision_layer = 2
+
+[node name="Base" type="MeshInstance3D" parent="."]
+mesh = SubResource("BoxShape3D_base")
+material_override = SubResource("StandardMaterial3D_base")
+
+[node name="BaseCollision" type="CollisionShape3D" parent="."]
+shape = SubResource("BoxShape3D_base")
+
+[node name="LeverArm" type="Node3D" parent="."]
+position = Vector3(0, 0.2, 0)
+rotation.x = 0.6
+
+[node name="ArmMesh" type="MeshInstance3D" parent="LeverArm"]
+mesh = SubResource("BoxShape3D_arm")
+material_override = SubResource("StandardMaterial3D_arm")
+position = Vector3(0, 0.5, 0)
+
+[node name="ArmCollision" type="CollisionShape3D" parent="LeverArm"]
+shape = SubResource("BoxShape3D_arm")
+position = Vector3(0, 0.5, 0)

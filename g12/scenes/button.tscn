@@ -1,0 +1,37 @@
+[gd_scene load_steps=7 format=3 uid="uid://button12345"]
+
+[ext_resource type="Script" path="res://scripts/button.gd" id="1_btn"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_base"]
+size = Vector3(0.8, 0.2, 0.8)
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_button"]
+height = 0.2
+radius = 0.3
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_base"]
+albedo_color = Color(0.3, 0.3, 0.3, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_button"]
+albedo_color = Color(0.2, 0.8, 0.2, 1)
+
+[node name="Button" type="StaticBody3D"]
+script = ExtResource("1_btn")
+collision_layer = 2
+
+[node name="Base" type="MeshInstance3D" parent="."]
+mesh = SubResource("BoxShape3D_base")
+material_override = SubResource("StandardMaterial3D_base")
+
+[node name="BaseCollision" type="CollisionShape3D" parent="."]
+shape = SubResource("BoxShape3D_base")
+
+[node name="ButtonTop" type="Node3D" parent="."]
+position = Vector3(0, 0.15, 0)
+
+[node name="ButtonMesh" type="MeshInstance3D" parent="ButtonTop"]
+mesh = SubResource("CylinderShape3D_button")
+material_override = SubResource("StandardMaterial3D_button")
+
+[node name="ButtonCollision" type="CollisionShape3D" parent="ButtonTop"]
+shape = SubResource("CylinderShape3D_button")

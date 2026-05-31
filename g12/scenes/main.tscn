@@ -1,0 +1,202 @@
+[gd_scene load_steps=15 format=3 uid="uid://mainscene123"]
+
+[ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1_player"]
+[ext_resource type="PackedScene" path="res://scenes/lever.tscn" id="2_lever"]
+[ext_resource type="PackedScene" path="res://scenes/button.tscn" id="3_button"]
+[ext_resource type="PackedScene" path="res://scenes/pressure_plate.tscn" id="4_plate"]
+[ext_resource type="PackedScene" path="res://scenes/door.tscn" id="5_door"]
+[ext_resource type="PackedScene" path="res://scenes/pushable_box.tscn" id="6_box"]
+[ext_resource type="Script" path="res://scripts/puzzle_manager.gd" id="7_puz"]
+[ext_resource type="Script" path="res://scripts/game_manager.gd" id="8_gm"]
+[ext_resource type="Script" path="res://scripts/time_rewind.gd" id="9_tim"]
+[ext_resource type="PackedScene" path="res://scenes/cutscene_manager.tscn" id="10_cut"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_floor"]
+size = Vector3(30, 0.5, 30)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_floor"]
+albedo_color = Color(0.2, 0.25, 0.3, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wall"]
+albedo_color = Color(0.3, 0.3, 0.35, 1)
+
+[node name="Main" type="Node3D"]
+script = ExtResource("8_gm")
+
+[sub_resource type="Environment" id="Environment_1"]
+background_mode = 1
+ambient_light_source = 1
+ambient_light_color = Color(0.3, 0.35, 0.4, 1)
+ambient_light_energy = 0.4
+tonemap_mode = 1
+tonemap_exposure = 1.0
+tonemap_white = 1.0
+ss_reflections_enabled = true
+glow_enabled = true
+glow_intensity = 0.5
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.707107, -0.353553, 0.612372, 0, 0.866025, 0.5, -0.707107, -0.353553, 0.612372, 0, 10, 0)
+light_energy = 1.2
+shadow_enabled = true
+shadow_bias = 0.01
+shadow_normal_bias = 1.0
+
+[node name="AmbientLight" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_1")
+
+[node name="Floor" type="StaticBody3D" parent="."]
+
+[node name="FloorMesh" type="MeshInstance3D" parent="Floor"]
+mesh = SubResource("BoxShape3D_floor")
+material_override = SubResource("StandardMaterial3D_floor")
+position = Vector3(0, -0.25, 0)
+
+[node name="FloorCollision" type="CollisionShape3D" parent="Floor"]
+shape = SubResource("BoxShape3D_floor")
+position = Vector3(0, -0.25, 0)
+
+[node name="WallBack" type="StaticBody3D" parent="."]
+
+[node name="WallBackMesh" type="MeshInstance3D" parent="WallBack"]
+mesh = SubResource("BoxShape3D_floor")
+material_override = SubResource("StandardMaterial3D_wall")
+position = Vector3(0, 5, -15)
+scale = Vector3(1, 0.35, 0.03)
+
+[node name="WallBackCollision" type="CollisionShape3D" parent="WallBack"]
+shape = SubResource("BoxShape3D_floor")
+position = Vector3(0, 5, -15)
+scale = Vector3(1, 0.35, 0.03)
+
+[node name="WallFront" type="StaticBody3D" parent="."]
+
+[node name="WallFrontMesh" type="MeshInstance3D" parent="WallFront"]
+mesh = SubResource("BoxShape3D_floor")
+material_override = SubResource("StandardMaterial3D_wall")
+position = Vector3(0, 5, 15)
+scale = Vector3(1, 0.35, 0.03)
+
+[node name="WallFrontCollision" type="CollisionShape3D" parent="WallFront"]
+shape = SubResource("BoxShape3D_floor")
+position = Vector3(0, 5, 15)
+scale = Vector3(1, 0.35, 0.03)
+
+[node name="WallLeft" type="StaticBody3D" parent="."]
+
+[node name="WallLeftMesh" type="MeshInstance3D" parent="WallLeft"]
+mesh = SubResource("BoxShape3D_floor")
+material_override = SubResource("StandardMaterial3D_wall")
+position = Vector3(-15, 5, 0)
+scale = Vector3(0.03, 0.35, 1)
+
+[node name="WallLeftCollision" type="CollisionShape3D" parent="WallLeft"]
+shape = SubResource("BoxShape3D_floor")
+position = Vector3(-15, 5, 0)
+scale = Vector3(0.03, 0.35, 1)
+
+[node name="WallRight" type="StaticBody3D" parent="."]
+
+[node name="WallRightMesh" type="MeshInstance3D" parent="WallRight"]
+mesh = SubResource("BoxShape3D_floor")
+material_override = SubResource("StandardMaterial3D_wall")
+position = Vector3(15, 5, 0)
+scale = Vector3(0.03, 0.35, 1)
+
+[node name="WallRightCollision" type="CollisionShape3D" parent="WallRight"]
+shape = SubResource("BoxShape3D_floor")
+position = Vector3(15, 5, 0)
+scale = Vector3(0.03, 0.35, 1)
+
+[node name="Player" parent="." instance=ExtResource("1_player")]
+position = Vector3(0, 1, 10)
+
+[node name="Lever1" parent="." instance=ExtResource("2_lever")]
+position = Vector3(-8, 0, -10)
+rotation = Vector3(0, 0.5, 0)
+order_index = 0
+
+[node name="Button1" parent="." instance=ExtResource("3_button")]
+position = Vector3(0, 0, -12)
+order_index = 1
+
+[node name="PressurePlate1" parent="." instance=ExtResource("4_plate")]
+position = Vector3(8, 0, -10)
+
+[node name="PushableBox1" parent="." instance=ExtResource("6_box")]
+position = Vector3(5, 0.5, -5)
+
+[node name="ExitDoor" parent="." instance=ExtResource("5_door")]
+position = Vector3(0, 1.5, -14.8)
+
+[node name="PuzzleManager" type="Node" parent="."]
+script = ExtResource("7_puz")
+interactables = Array[Node]([NodePath("../Lever1"), NodePath("../Button1"), NodePath("../PressurePlate1")])
+require_exact_order = true
+
+[node name="TimeRewind" type="Node" parent="."]
+script = ExtResource("9_tim")
+player = NodePath("../Player")
+tracked_objects = Array[NodePath]([NodePath("../Lever1"), NodePath("../Button1"), NodePath("../PressurePlate1"), NodePath("../PushableBox1")])
+
+[node name="CutsceneManager" parent="." instance=ExtResource("10_cut")]
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="Crosshair" type="ColorRect" parent="UI"]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -2
+offset_top = -2
+offset_right = 2
+offset_bottom = 2
+color = Color(1, 1, 1, 0.8)
+
+[node name="HintLabel" type="Label" parent="UI"]
+anchors_preset = 5
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -250
+offset_top = -60
+offset_right = 250
+offset_bottom = -30
+horizontal_alignment = 1
+text = "WASD: 移动 | 空格: 跳跃 | E: 交互 | R: 时间回溯 | ESC: 释放鼠标"
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 16
+
+[node name="PuzzleHint" type="Label" parent="UI"]
+anchors_preset = 5
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -250
+offset_top = -30
+offset_right = 250
+offset_bottom = -5
+horizontal_alignment = 1
+text = "按正确顺序触发机关：拉杆 → 按钮 → 把箱子推到压力板上"
+theme_override_colors/font_color = Color(1, 0.8, 0.2, 1)
+theme_override_font_sizes/font_size = 14
+
+[node name="RewindHint" type="Label" parent="UI"]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -100
+offset_top = -50
+offset_right = 100
+offset_bottom = -20
+horizontal_alignment = 1
+text = "⏪ 时间回溯中..."
+theme_override_colors/font_color = Color(0.4, 0.8, 1, 1)
+theme_override_font_sizes/font_size = 24
+visible = false

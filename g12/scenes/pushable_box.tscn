@@ -1,0 +1,21 @@
+[gd_scene load_steps=5 format=3 uid="uid://box12345"]
+
+[ext_resource type="Script" path="res://scripts/pushable_box.gd" id="1_box"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_box"]
+size = Vector3(1.0, 1.0, 1.0)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_box"]
+albedo_color = Color(0.8, 0.6, 0.3, 1)
+
+[node name="PushableBox" type="RigidBody3D"]
+script = ExtResource("1_box")
+collision_layer = 1
+collision_mask = 1
+
+[node name="BoxMesh" type="MeshInstance3D" parent="."]
+mesh = SubResource("BoxShape3D_box")
+material_override = SubResource("StandardMaterial3D_box")
+
+[node name="BoxCollision" type="CollisionShape3D" parent="."]
+shape = SubResource("BoxShape3D_box")

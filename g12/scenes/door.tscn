@@ -1,0 +1,45 @@
+[gd_scene load_steps=6 format=3 uid="uid://door12345"]
+
+[ext_resource type="Script" path="res://scripts/door.gd" id="1_door"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_door"]
+size = Vector3(2.0, 3.0, 0.2)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_frame"]
+size = Vector3(2.4, 3.4, 0.3)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_door"]
+albedo_color = Color(0.5, 0.35, 0.2, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_frame"]
+albedo_color = Color(0.3, 0.2, 0.1, 1)
+
+[node name="Door" type="StaticBody3D"]
+script = ExtResource("1_door")
+
+[node name="DoorBody" type="Node3D" parent="."]
+
+[node name="DoorMesh" type="MeshInstance3D" parent="DoorBody"]
+mesh = SubResource("BoxShape3D_door")
+material_override = SubResource("StandardMaterial3D_door")
+
+[node name="DoorCollision" type="CollisionShape3D" parent="DoorBody"]
+shape = SubResource("BoxShape3D_door")
+
+[node name="FrameLeft" type="MeshInstance3D" parent="."]
+mesh = SubResource("BoxShape3D_frame")
+material_override = SubResource("StandardMaterial3D_frame")
+position = Vector3(-1.2, 0, 0)
+scale = Vector3(0.1, 1, 1)
+
+[node name="FrameRight" type="MeshInstance3D" parent="."]
+mesh = SubResource("BoxShape3D_frame")
+material_override = SubResource("StandardMaterial3D_frame")
+position = Vector3(1.2, 0, 0)
+scale = Vector3(0.1, 1, 1)
+
+[node name="FrameTop" type="MeshInstance3D" parent="."]
+mesh = SubResource("BoxShape3D_frame")
+material_override = SubResource("StandardMaterial3D_frame")
+position = Vector3(0, 1.7, 0)
+scale = Vector3(1, 0.1, 1)
