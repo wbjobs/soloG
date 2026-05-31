@@ -1,0 +1,93 @@
+@page "/configs/edit/{Id:guid}"
+@rendermode InteractiveServer
+@inject IConfigService ConfigService
+@inject ISnackbar Snackbar
+@inject NavigationManager NavigationManager
+
+<MudCard>
+    <MudCardHeader>
+        <CardHeaderContent>
+            <MudText Typo="Typo.h5">编辑配置</MudText>
+        </CardHeaderContent>
+    </MudCardHeader>
+    <MudCardContent>
+        @if (_config != null)
+        {
+            <MudForm @ref="_form" OnValidSubmit="@HandleValidSubmit">
+                <MudTextField Label="配置Key" Value="@_config.Key" Disabled="true" Variant="Variant.Outlined" Class="mb-4" />
+                <MudSelect Label="环境" Value="@_config.Environment" Disabled="true" Variant="Variant.Outlined" Class="mb-4">
+                    <MudSelectItem T="EnvironmentType" Value="EnvironmentType.Dev">开发 (Dev)</MudSelectItem>
+                    <MudSelectItem T="EnvironmentType" Value="EnvironmentType.Test">测试 (Test)</MudSelectItem>
+                    <MudSelectItem T="EnvironmentType" Value="EnvironmentType.Prod">生产 (Prod)</MudSelectItem>
+                </MudSelect>
+                <MudSelect @bind-Value="_model.ValueType" Label="值类型" Variant="Variant.Outlined" Class="mb-4">
+                    <MudSelectItem T="ValueType" Value="ValueType.String">字符串</MudSelectItem>
+                    <MudSelectItem T="ValueType" Value="ValueType.Int">整数</MudSelectItem>
+                    <MudSelectItem T="ValueType" Value="ValueType.Number">数字</MudSelectItem>
+                    <MudSelectItem T="ValueType" Value="ValueType.Boolean">布尔</MudSelectItem>
+                    <MudSelectItem T="ValueType" Value="ValueType.Json">JSON</MudSelectItem>
+                </MudSelect>
+                <MudTextArea @bind-Value="_model.Value" Label="配置值" Required="true" AutoGrow="true" Rows="4" Variant="Variant.Outlined" Class="mb-4" />
+                <MudTextField @bind-Value="_model.Description" Label="描述" Variant="Variant.Outlined" Class="mb-4" />
+                <MudSwitch @bind-Checked="_model.IsEncrypted" Label="加密存储 (AES-256)" Color="Color.Primary" Class="mb-4" />
+                <MudTextField @bind-Value="_model.ChangeReason" Label="变更原因" Variant="Variant.Outlined" Class="mb-4" />
+            </MudForm>
+        }
+        else
+        {
+            <MudProgressCircular Indeterminate="true" />
+        }
+    </MudCardContent>
+    <MudCardActions>
+        <MudButton OnClick="@Cancel">取消</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@HandleValidSubmit">保存</MudButton>
+    </MudCardActions>
+</MudCard>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    private ConfigDto? _config;
+    private UpdateConfigDto _model = new();
+    private MudForm _form = default!;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            var allConfigs = await ConfigService.GetAllConfigsAsync();
+            _config = allConfigs.FirstOrDefault(c => c.Id == Id);
+            if (_config != null)
+            {
+                _model = new UpdateConfigDto
+                {
+                    Value = _config.Value,
+                    Description = _config.Description,
+                    IsEncrypted = _config.IsEncrypted
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"加载失败: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        if (_config == null) return;
+        await _form.Validate();
+        if (!_form.IsValid) return;
+        try
+        {
+            await ConfigService.UpdateConfigAsync(_config.Id, _model);
+            Snackbar.Add("更新成功", Severity.Success);
+            NavigationManager.NavigateTo("/configs");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"更新失败: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private void Cancel() => NavigationManager.NavigateTo("/configs");
+}

@@ -1,0 +1,43 @@
+@inject IDialogService DialogService
+
+<MudDialog>
+    <DialogContent>
+        <MudTable Items="@Versions" Hover="true" Striped="true">
+            <HeaderContent>
+                <MudTh>版本</MudTh>
+                <MudTh>变更原因</MudTh>
+                <MudTh>创建时间</MudTh>
+                <MudTh>创建者</MudTh>
+                <MudTh>操作</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>v@context.Version</MudTd>
+                <MudTd>@context.ChangeReason</MudTd>
+                <MudTd>@context.CreatedAt.ToString("yyyy-MM-dd HH:mm")</MudTd>
+                <MudTd>@context.CreatedBy</MudTd>
+                <MudTd>
+                    <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Warning"
+                               OnClick="@(() => Rollback(context.Version))">
+                        回滚到此版本
+                    </MudButton>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@Cancel">关闭</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Parameter] public Guid ConfigId { get; set; }
+    [Parameter] public List<ConfigVersionDto> Versions { get; set; } = [];
+    [CascadingParameter] private MudDialogInstance MudDialog { get; set; } = default!;
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private void Rollback(int version)
+    {
+        MudDialog.Close(DialogResult.Ok(version));
+    }
+}

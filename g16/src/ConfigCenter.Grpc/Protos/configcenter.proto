@@ -1,0 +1,128 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+option csharp_namespace = "ConfigCenter.Grpc";
+
+package configcenter;
+
+enum EnvironmentType {
+  ENVIRONMENT_TYPE_UNSPECIFIED = 0;
+  DEV = 1;
+  TEST = 2;
+  PROD = 3;
+}
+
+enum ValueType {
+  VALUE_TYPE_UNSPECIFIED = 0;
+  STRING = 1;
+  INT = 2;
+  BOOLEAN = 3;
+  JSON = 4;
+  NUMBER = 5;
+}
+
+message ConfigEntry {
+  string id = 1;
+  string key = 2;
+  string value = 3;
+  string description = 4;
+  EnvironmentType environment = 5;
+  ValueType value_type = 6;
+  bool is_encrypted = 7;
+  int32 version = 8;
+  google.protobuf.Timestamp updated_at = 9;
+  string updated_by = 10;
+}
+
+message CreateConfigRequest {
+  string key = 1;
+  string value = 2;
+  string description = 3;
+  EnvironmentType environment = 4;
+  ValueType value_type = 5;
+  bool is_encrypted = 6;
+  string created_by = 7;
+}
+
+message UpdateConfigRequest {
+  string id = 1;
+  string value = 2;
+  string description = 3;
+  bool is_encrypted = 4;
+  string change_reason = 5;
+  string updated_by = 6;
+}
+
+message GetConfigRequest {
+  string key = 1;
+  EnvironmentType environment = 2;
+}
+
+message GetConfigsRequest {
+  EnvironmentType environment = 1;
+}
+
+message DeleteConfigRequest {
+  string id = 1;
+}
+
+message DeleteConfigResponse {
+  bool success = 1;
+}
+
+message RollbackConfigRequest {
+  string config_id = 1;
+  int32 target_version = 2;
+}
+
+message GetVersionsRequest {
+  string config_id = 1;
+}
+
+message ConfigVersion {
+  string id = 1;
+  string config_entry_id = 2;
+  string key = 3;
+  string value = 4;
+  int32 version = 5;
+  string change_reason = 6;
+  google.protobuf.Timestamp created_at = 7;
+  string created_by = 8;
+}
+
+message ConfigVersionsResponse {
+  repeated ConfigVersion versions = 1;
+}
+
+message SubscribeRequest {
+  EnvironmentType environment = 1;
+  string key_prefix = 2;
+}
+
+message ConfigChangeEvent {
+  string config_id = 1;
+  string key = 2;
+  string value = 3;
+  EnvironmentType environment = 4;
+  int32 version = 5;
+  google.protobuf.Timestamp change_time = 6;
+  string change_type = 7;
+}
+
+message AllConfigValuesResponse {
+  map<string, string> values = 1;
+}
+
+service ConfigCenterService {
+  rpc GetConfig(GetConfigRequest) returns (ConfigEntry);
+  rpc GetConfigs(GetConfigsRequest) returns (stream ConfigEntry);
+  rpc CreateConfig(CreateConfigRequest) returns (ConfigEntry);
+  rpc UpdateConfig(UpdateConfigRequest) returns (ConfigEntry);
+  rpc DeleteConfig(DeleteConfigRequest) returns (DeleteConfigResponse);
+  rpc RollbackConfig(RollbackConfigRequest) returns (ConfigEntry);
+  rpc GetConfigVersions(GetVersionsRequest) returns (ConfigVersionsResponse);
+  rpc SubscribeConfigChanges(SubscribeRequest) returns (stream ConfigChangeEvent);
+  rpc GetAllConfigValues(GetConfigsRequest) returns (AllConfigValuesResponse);
+}

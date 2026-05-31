@@ -1,0 +1,138 @@
+@page "/audit-logs"
+@rendermode InteractiveServer
+@inject IAuditService AuditService
+@inject ISnackbar Snackbar
+
+<MudCard Class="mb-4">
+    <MudCardContent>
+        <MudText Typo="Typo.h5" Class="mb-4">审计日志</MudText>
+        <MudGrid>
+            <MudItem xs="12" sm="6" md="3">
+                <MudSelect @bind-Value="_query.Environment" Label="环境" T="EnvironmentType?" Variant="Variant.Outlined">
+                    <MudSelectItem T="EnvironmentType?" Value="null">全部</MudSelectItem>
+                    <MudSelectItem T="EnvironmentType?" Value="EnvironmentType.Dev">Dev</MudSelectItem>
+                    <MudSelectItem T="EnvironmentType?" Value="EnvironmentType.Test">Test</MudSelectItem>
+                    <MudSelectItem T="EnvironmentType?" Value="EnvironmentType.Prod">Prod</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudTextField @bind-Value="_query.ConfigKey" Label="配置Key" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudTextField @bind-Value="_query.Operator" Label="操作人" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudSelect @bind-Value="_query.Action" Label="操作类型" T="string?" Variant="Variant.Outlined">
+                    <MudSelectItem T="string?" Value="null">全部</MudSelectItem>
+                    <MudSelectItem T="string?" Value="Create">创建</MudSelectItem>
+                    <MudSelectItem T="string?" Value="Update">更新</MudSelectItem>
+                    <MudSelectItem T="string?" Value="Delete">删除</MudSelectItem>
+                    <MudSelectItem T="string?" Value="Rollback">回滚</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+        <div class="d-flex justify-end mt-4">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@Search">查询</MudButton>
+        </div>
+    </MudCardContent>
+</MudCard>
+
+@if (_result != null)
+{
+    <MudCard>
+        <MudCardContent>
+            <MudText Typo="Typo.subtitle2" Class="mb-3">共 @_result.Total 条记录</MudText>
+            <MudTable Items="@_result.Items" Hover="true" Breakpoint="Breakpoint.Sm">
+                <HeaderContent>
+                    <MudTh>时间</MudTh>
+                    <MudTh>操作</MudTh>
+                    <MudTh>配置Key</MudTh>
+                    <MudTh>环境</MudTh>
+                    <MudTh>操作人</MudTh>
+                    <MudTh>变更原因</MudTh>
+                    <MudTh>详情</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="时间">@context.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")</MudTd>
+                    <MudTd DataLabel="操作">
+                        <MudChip Color="@GetActionColor(context.Action)" Size="Size.Small" Label="@context.Action" />
+                    </MudTd>
+                    <MudTd DataLabel="配置Key">@context.ConfigKey</MudTd>
+                    <MudTd DataLabel="环境">
+                        <MudChip Color="@GetEnvColor(context.Environment)" Size="Size.Small" Label="@context.Environment" />
+                    </MudTd>
+                    <MudTd DataLabel="操作人">@context.Operator</MudTd>
+                    <MudTd DataLabel="变更原因">@context.ChangeReason</MudTd>
+                    <MudTd DataLabel="详情">
+                        <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => ShowDetail(context))">查看</MudButton>
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Typo="Typo.body2" Align="Align.Center" Class="pa-8">暂无审计记录</MudText>
+                </NoRecordsContent>
+            </MudTable>
+            <MudPagination Selected="_query.Page" Total="(int)Math.Ceiling((double)_result.Total / _query.PageSize)"
+                          SelectedChanged="OnPageChanged" Class="mt-4" />
+        </MudCardContent>
+    </MudCard>
+}
+else
+{
+    <MudSkeleton Height="400px" />
+}
+
+@code {
+    private AuditLogQueryDto _query = new() { PageSize = 20 };
+    private PagedResult<AuditLogDto>? _result;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Search();
+    }
+
+    private async Task Search()
+    {
+        try
+        {
+            _result = await AuditService.QueryAsync(_query);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"查询失败: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private Task OnPageChanged(int page)
+    {
+        _query.Page = page;
+        return Search();
+    }
+
+    private async Task ShowDetail(AuditLogDto log)
+    {
+        var parameters = new DialogParameters
+        {
+            { nameof(AuditLogDetailDialog.Log), log }
+        };
+        DialogService.Show<AuditLogDetailDialog>("审计详情", parameters);
+    }
+
+    private Color GetActionColor(string action) => action switch
+    {
+        "Create" => Color.Success,
+        "Update" => Color.Primary,
+        "Delete" => Color.Error,
+        "Rollback" => Color.Warning,
+        _ => Color.Default
+    };
+
+    private Color GetEnvColor(EnvironmentType env) => env switch
+    {
+        EnvironmentType.Dev => Color.Info,
+        EnvironmentType.Test => Color.Warning,
+        EnvironmentType.Prod => Color.Error,
+        _ => Color.Default
+    };
+
+    [Inject] IDialogService DialogService { get; set; } = default!;
+}

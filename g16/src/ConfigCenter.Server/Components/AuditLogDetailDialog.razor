@@ -1,0 +1,71 @@
+@inject IDialogService DialogService
+
+<MudDialog>
+    <DialogContent>
+        <MudGrid>
+            <MudItem xs="6">
+                <MudText Typo="Typo.subtitle2">操作时间</MudText>
+                <MudText>@Log.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")</MudText>
+            </MudItem>
+            <MudItem xs="6">
+                <MudText Typo="Typo.subtitle2">操作类型</MudText>
+                <MudChip Color="@GetActionColor(Log.Action)" Label="@Log.Action" />
+            </MudItem>
+            <MudItem xs="6">
+                <MudText Typo="Typo.subtitle2">配置Key</MudText>
+                <MudText>@Log.ConfigKey</MudText>
+            </MudItem>
+            <MudItem xs="6">
+                <MudText Typo="Typo.subtitle2">环境</MudText>
+                <MudText>@Log.Environment</MudText>
+            </MudItem>
+            <MudItem xs="6">
+                <MudText Typo="Typo.subtitle2">操作人</MudText>
+                <MudText>@Log.Operator</MudText>
+            </MudItem>
+            <MudItem xs="6">
+                <MudText Typo="Typo.subtitle2">IP地址</MudText>
+                <MudText>@(string.IsNullOrEmpty(Log.IpAddress) ? "-" : Log.IpAddress)</MudText>
+            </MudItem>
+            <MudItem xs="12">
+                <MudText Typo="Typo.subtitle2">变更原因</MudText>
+                <MudText>@(string.IsNullOrEmpty(Log.ChangeReason) ? "-" : Log.ChangeReason)</MudText>
+            </MudItem>
+            <MudItem xs="12">
+                <MudText Typo="Typo.subtitle2">原值</MudText>
+                <MudPaper Class="pa-3 mt-2" Elevation="0">
+                    <MudText Style="white-space:pre-wrap;word-break:break-all;">
+                        @(string.IsNullOrEmpty(Log.OldValue) ? "-" : Log.OldValue)
+                    </MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12">
+                <MudText Typo="Typo.subtitle2">新值</MudText>
+                <MudPaper Class="pa-3 mt-2" Elevation="0">
+                    <MudText Style="white-space:pre-wrap;word-break:break-all;">
+                        @(string.IsNullOrEmpty(Log.NewValue) ? "-" : Log.NewValue)
+                    </MudText>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@Cancel">关闭</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Parameter] public AuditLogDto Log { get; set; } = default!;
+    [CascadingParameter] private MudDialogInstance MudDialog { get; set; } = default!;
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private Color GetActionColor(string action) => action switch
+    {
+        "Create" => Color.Success,
+        "Update" => Color.Primary,
+        "Delete" => Color.Error,
+        "Rollback" => Color.Warning,
+        _ => Color.Default
+    };
+}

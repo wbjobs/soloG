@@ -1,0 +1,43 @@
+@inherits LayoutComponentBase
+
+<MudThemeProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="1">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" OnClick="@(_drawerToggle = !_drawerToggle)" Edge="Edge.Start" />
+        <MudTypography Variant="H6" Class="ml-3">配置中心管理平台</MudTypography>
+        <MudSpacer />
+        <MudChip Color="Color.Primary" Label="@_currentEnv" />
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="_drawerToggle" ClipMode="DrawerClipMode.Always" Elevation="2" Variant="DrawerVariant.Temporary">
+        <MudDrawerHeader>
+            <MudText Typo="Typo.h6">导航菜单</MudText>
+        </MudDrawerHeader>
+        <MudNavMenu>
+            <MudNavLink Href="/" Icon="@Icons.Material.Filled.Dashboard" Match="NavLinkMatch.All">仪表盘</MudNavLink>
+            <MudNavGroup Title="配置管理" Icon="@Icons.Material.Filled.Settings">
+                <MudNavLink Href="/configs">配置列表</MudNavLink>
+                <MudNavLink Href="/configs/create">新建配置</MudNavLink>
+                <MudNavLink Href="/audit-logs">审计日志</MudNavLink>
+                <MudNavLink Href="/dependency-analysis">依赖分析</MudNavLink>
+            </MudNavGroup>
+            <MudNavGroup Title="系统工具" Icon="@Icons.Material.Filled.Build">
+                <MudNavLink Href="/import-export">导入/导出</MudNavLink>
+            </MudNavGroup>
+        </MudNavMenu>
+    </MudDrawer>
+
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-5 mb-5">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private bool _drawerToggle = false;
+    private string _currentEnv = "Dev";
+}

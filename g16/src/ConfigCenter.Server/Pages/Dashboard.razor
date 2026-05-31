@@ -1,0 +1,88 @@
+@page "/"
+@rendermode InteractiveServer
+@inject IConfigService ConfigService
+
+<MudGrid>
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudText Typo="Typo.subtitle2">总配置数</MudText>
+            <MudText Typo="Typo.h3" Color="Color.Primary">@_totalCount</MudText>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudText Typo="Typo.subtitle2">DEV 环境</MudText>
+            <MudText Typo="Typo.h3" Color="Color.Info">@_devCount</MudText>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudText Typo="Typo.subtitle2">TEST 环境</MudText>
+            <MudText Typo="Typo.h3" Color="Color.Warning">@_testCount</MudText>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudText Typo="Typo.subtitle2">PROD 环境</MudText>
+            <MudText Typo="Typo.h3" Color="Color.Error">@_prodCount</MudText>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12">
+        <MudCard>
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6">最近更新</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudTable Items="@_recentConfigs" Hover="true">
+                    <HeaderContent>
+                        <MudTh>Key</MudTh>
+                        <MudTh>环境</MudTh>
+                        <MudTh>版本</MudTh>
+                        <MudTh>更新时间</MudTh>
+                        <MudTh>更新者</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd>@context.Key</MudTd>
+                        <MudTd>
+                            <MudChip Size="Size.Small" Color="@GetColor(context.Environment)" Label="@context.Environment" />
+                        </MudTd>
+                        <MudTd>v@context.Version</MudTd>
+                        <MudTd>@context.UpdatedAt.ToString("yyyy-MM-dd HH:mm:ss")</MudTd>
+                        <MudTd>@context.UpdatedBy</MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent>
+                        <MudText Typo="Typo.body2" Align="Align.Center" Class="pa-8">暂无数据</MudText>
+                    </NoRecordsContent>
+                </MudTable>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private int _totalCount;
+    private int _devCount;
+    private int _testCount;
+    private int _prodCount;
+    private IEnumerable<ConfigDto> _recentConfigs = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var allConfigs = (await ConfigService.GetAllConfigsAsync()).ToList();
+        _totalCount = allConfigs.Count;
+        _devCount = allConfigs.Count(c => c.Environment == EnvironmentType.Dev);
+        _testCount = allConfigs.Count(c => c.Environment == EnvironmentType.Test);
+        _prodCount = allConfigs.Count(c => c.Environment == EnvironmentType.Prod);
+        _recentConfigs = allConfigs.OrderByDescending(c => c.UpdatedAt).Take(10);
+    }
+
+    private Color GetColor(EnvironmentType env) => env switch
+    {
+        EnvironmentType.Dev => Color.Info,
+        EnvironmentType.Test => Color.Warning,
+        EnvironmentType.Prod => Color.Error,
+        _ => Color.Default
+    };
+}

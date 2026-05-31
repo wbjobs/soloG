@@ -1,0 +1,149 @@
+@page "/configs"
+@rendermode InteractiveServer
+@inject IConfigService ConfigService
+@inject IAuditService AuditService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject NavigationManager NavigationManager
+
+<MudCard Class="mb-4">
+    <MudCardContent>
+        <div class="d-flex flex-wrap gap-4 justify-between align-center">
+            <MudText Typo="Typo.h5">配置列表</MudText>
+            <div class="d-flex flex-wrap gap-2 align-center">
+                <MudSelect @bind-Value="_selectedEnv" Label="环境" T="EnvironmentType?" Variant="Variant.Outlined" Style="min-width:140px;">
+                    <MudSelectItem T="EnvironmentType?" Value="null">全部</MudSelectItem>
+                    <MudSelectItem T="EnvironmentType?" Value="EnvironmentType.Dev">开发 (Dev)</MudSelectItem>
+                    <MudSelectItem T="EnvironmentType?" Value="EnvironmentType.Test">测试 (Test)</MudSelectItem>
+                    <MudSelectItem T="EnvironmentType?" Value="EnvironmentType.Prod">生产 (Prod)</MudSelectItem>
+                </MudSelect>
+                <MudTextField @bind-Value="_searchText" Placeholder="搜索配置Key..." Immediate="true" Style="min-width:200px;" />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="GoToCreate">
+                    <MudIcon Icon="@Icons.Material.Filled.Add" Class="mr-1" /> 新建配置
+                </MudButton>
+            </div>
+        </div>
+    </MudCardContent>
+</MudCard>
+
+<MudTable Items="@_filteredConfigs" Hover="true" Breakpoint="Breakpoint.Sm">
+    <HeaderContent>
+        <MudTh>Key</MudTh>
+        <MudTh>环境</MudTh>
+        <MudTh>值</MudTh>
+        <MudTh>类型</MudTh>
+        <MudTh>加密</MudTh>
+        <MudTh>版本</MudTh>
+        <MudTh>更新时间</MudTh>
+        <MudTh>操作</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Key">@context.Key</MudTd>
+        <MudTd DataLabel="环境">
+            <MudChip Color="@GetEnvColor(context.Environment)" Size="Size.Small" Label="@context.Environment" />
+        </MudTd>
+        <MudTd DataLabel="值">
+            @if (context.IsEncrypted) {
+                <span>******</span>
+            } else {
+                <MudText Style="max-width:200px;overflow:hidden;text-overflow:ellipsis;display:block;">@context.Value</MudText>
+            }
+        </MudTd>
+        <MudTd DataLabel="类型">@context.ValueType</MudTd>
+        <MudTd DataLabel="加密">
+            <MudIcon Icon="@(context.IsEncrypted ? Icons.Material.Filled.Lock : Icons.Material.Filled.LockOpen)" Color="@(context.IsEncrypted ? Color.Warning : Color.Default)" />
+        </MudTd>
+        <MudTd DataLabel="版本">v@context.Version</MudTd>
+        <MudTd DataLabel="更新时间">@context.UpdatedAt.ToString("yyyy-MM-dd HH:mm")</MudTd>
+        <MudTd DataLabel="操作">
+            <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => EditConfig(context))">编辑</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => ShowVersions(context))">版本</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => ShowAuditLogs(context))">审计</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error" OnClick="@(() => DeleteConfig(context))">删除</MudButton>
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText Typo="Typo.body2" Align="Align.Center" Class="pa-8">暂无配置数据</MudText>
+    </NoRecordsContent>
+</MudTable>
+
+@code {
+    private IEnumerable<ConfigDto> _configs = [];
+    private EnvironmentType? _selectedEnv;
+    private string _searchText = string.Empty;
+
+    private IEnumerable<ConfigDto> _filteredConfigs =>
+        _configs.Where(c =>
+            (!_selectedEnv.HasValue || c.Environment == _selectedEnv.Value) &&
+            (string.IsNullOrEmpty(_searchText) || c.Key.Contains(_searchText, StringComparison.OrdinalIgnoreCase))
+        ).OrderBy(c => c.Key);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadConfigs();
+    }
+
+    private async Task LoadConfigs()
+    {
+        _configs = await ConfigService.GetAllConfigsAsync(_selectedEnv);
+    }
+
+    private void GoToCreate() => NavigationManager.NavigateTo("/configs/create");
+
+    private void EditConfig(ConfigDto config) => NavigationManager.NavigateTo($"/configs/edit/{config.Id}");
+
+    private async Task ShowVersions(ConfigDto config)
+    {
+        var versions = await ConfigService.GetConfigVersionsAsync(config.Id);
+        var parameters = new DialogParameters
+        {
+            { nameof(VersionHistoryDialog.ConfigId), config.Id },
+            { nameof(VersionHistoryDialog.Versions), versions.ToList() }
+        };
+        var dialog = DialogService.Show<VersionHistoryDialog>($"{config.Key} - 版本历史", parameters);
+        var result = await dialog.Result;
+        if (!result.Canceled && result.Data is int targetVersion)
+        {
+            await ConfigService.RollbackConfigAsync(config.Id, targetVersion);
+            Snackbar.Add($"已回滚到版本 v{targetVersion}", Severity.Success);
+            await LoadConfigs();
+        }
+    }
+
+    private async Task ShowAuditLogs(ConfigDto config)
+    {
+        var logs = await AuditService.GetConfigHistoryAsync(config.Id);
+        var parameters = new DialogParameters
+        {
+            { nameof(ConfigAuditLogsDialog.ConfigKey), config.Key },
+            { nameof(ConfigAuditLogsDialog.Logs), logs.ToList() }
+        };
+        DialogService.Show<ConfigAuditLogsDialog>($"{config.Key} - 审计日志", parameters);
+    }
+
+    private async Task DeleteConfig(ConfigDto config)
+    {
+        var parameters = new DialogParameters
+        {
+            { "ContentText", $"确定要删除配置 '{config.Key}' 吗？" },
+            { "ButtonText", "删除" },
+            { "Color", Color.Error }
+        };
+        var dialog = DialogService.Show<MudMessageBox>("删除确认", parameters);
+        var result = await dialog.Result;
+        if (!result.Canceled && result.Data is true)
+        {
+            await ConfigService.DeleteConfigAsync(config.Id);
+            Snackbar.Add("删除成功", Severity.Success);
+            await LoadConfigs();
+        }
+    }
+
+    private Color GetEnvColor(EnvironmentType env) => env switch
+    {
+        EnvironmentType.Dev => Color.Info,
+        EnvironmentType.Test => Color.Warning,
+        EnvironmentType.Prod => Color.Error,
+        _ => Color.Default
+    };
+}

@@ -1,0 +1,108 @@
+@page "/import-export"
+@rendermode InteractiveServer
+@inject IImportExportService ImportExportService
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+
+<MudGrid>
+    <MudItem xs="12" md="6">
+        <MudCard>
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h5">导出配置</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudSelect @bind-Value="_exportEnv" Label="导出环境" Variant="Variant.Outlined" Class="mb-4">
+                    <MudSelectItem T="EnvironmentType?" Value="null">全部环境</MudSelectItem>
+                    <MudSelectItem T="EnvironmentType?" Value="EnvironmentType.Dev">开发 (Dev)</MudSelectItem>
+                    <MudSelectItem T="EnvironmentType?" Value="EnvironmentType.Test">测试 (Test)</MudSelectItem>
+                    <MudSelectItem T="EnvironmentType?" Value="EnvironmentType.Prod">生产 (Prod)</MudSelectItem>
+                </MudSelect>
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@ExportConfigs" Disabled="_exporting">
+                    @(_exporting ? "导出中..." : "导出 JSON")
+                </MudButton>
+            </MudCardActions>
+        </MudCard>
+    </MudItem>
+    <MudItem xs="12" md="6">
+        <MudCard>
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h5">导入配置</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudFileUpload T="IBrowserFile" FilesChanged="@OnFilesChanged" Class="mb-4" />
+                <MudSwitch @bind-Checked="_overwriteOnImport" Label="覆盖已存在的配置" Color="Color.Warning" />
+                @if (_importFile != null)
+                {
+                    <MudText Typo="Typo.body2" Class="mt-2">已选择文件: @_importFile.Name</MudText>
+                }
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="@ImportConfigs" Disabled="_importing || _importFile == null">
+                    @(_importing ? "导入中..." : "导入")
+                </MudButton>
+            </MudCardActions>
+        </MudCard>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private EnvironmentType? _exportEnv;
+    private bool _exporting;
+    private bool _importing;
+    private bool _overwriteOnImport;
+    private IBrowserFile? _importFile;
+
+    private async Task ExportConfigs()
+    {
+        _exporting = true;
+        try
+        {
+            var data = await ImportExportService.ExportConfigsAsync(_exportEnv);
+            var fileName = $"configs-{DateTime.Now:yyyyMMddHHmmss}.json";
+            await JS.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(data));
+            Snackbar.Add("导出成功", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"导出失败: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _exporting = false;
+        }
+    }
+
+    private void OnFilesChanged(IBrowserFile[] files)
+    {
+        _importFile = files.FirstOrDefault();
+    }
+
+    private async Task ImportConfigs()
+    {
+        if (_importFile == null) return;
+        _importing = true;
+        try
+        {
+            using var stream = _importFile.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            var count = await ImportExportService.ImportConfigsAsync(ms.ToArray(), _overwriteOnImport);
+            Snackbar.Add($"成功导入 {count} 条配置", Severity.Success);
+            _importFile = null;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"导入失败: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _importing = false;
+        }
+    }
+}

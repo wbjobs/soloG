@@ -1,0 +1,62 @@
+@inject IDialogService DialogService
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.subtitle1" Class="mb-3">@ConfigKey 的审计日志</MudText>
+        @if (Logs.Any())
+        {
+            <MudList Dense="true" Class="audit-log-list">
+                @foreach (var log in Logs)
+                {
+                    <MudListItem>
+                        <MudChip Size="Size.Small" Color="@GetActionColor(log.Action)" Class="mr-2">@log.Action</MudChip>
+                        <MudText>
+                            <span class="text-muted">@log.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")</span>
+                            <span class="mx-2">by</span>
+                            <strong>@log.Operator</strong>
+                            @if (!string.IsNullOrEmpty(log.ChangeReason))
+                            {
+                                <span class="mx-2">-</span>
+                                <span>@log.ChangeReason</span>
+                            }
+                        </MudText>
+                        <MudButton Size="Size.Small" Variant="Variant.Text" Class="ml-auto" OnClick="@(() => ShowDetail(log))">详情</MudButton>
+                    </MudListItem>
+                }
+            </MudList>
+        }
+        else
+        {
+            <MudText Typo="Typo.body2" Class="text-muted pa-4 text-center">暂无审计记录</MudText>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@Cancel">关闭</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Parameter] public string ConfigKey { get; set; } = string.Empty;
+    [Parameter] public List<AuditLogDto> Logs { get; set; } = [];
+    [CascadingParameter] private MudDialogInstance MudDialog { get; set; } = default!;
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private Color GetActionColor(string action) => action switch
+    {
+        "Create" => Color.Success,
+        "Update" => Color.Primary,
+        "Delete" => Color.Error,
+        "Rollback" => Color.Warning,
+        _ => Color.Default
+    };
+
+    private void ShowDetail(AuditLogDto log)
+    {
+        var parameters = new DialogParameters
+        {
+            { nameof(AuditLogDetailDialog.Log), log }
+        };
+        DialogService.Show<AuditLogDetailDialog>("审计详情", parameters);
+    }
+}

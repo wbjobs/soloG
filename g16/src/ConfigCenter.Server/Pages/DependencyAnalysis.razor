@@ -1,0 +1,147 @@
+@page "/dependency-analysis"
+@rendermode InteractiveServer
+@inject IDependencyAnalyzer DependencyAnalyzer
+@inject ISnackbar Snackbar
+
+<MudCard Class="mb-4">
+    <MudCardContent>
+        <div class="d-flex justify-between align-center">
+            <MudText Typo="Typo.h5">配置依赖分析</MudText>
+            <div class="d-flex gap-2">
+                <MudSelect @bind-Value="_environment" Label="环境" T="EnvironmentType" Variant="Variant.Outlined" Style="width:140px;">
+                    <MudSelectItem T="EnvironmentType" Value="EnvironmentType.Dev">Dev</MudSelectItem>
+                    <MudSelectItem T="EnvironmentType" Value="EnvironmentType.Test">Test</MudSelectItem>
+                    <MudSelectItem T="EnvironmentType" Value="EnvironmentType.Prod">Prod</MudSelectItem>
+                </MudSelect>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@Analyze" Disabled="_loading">
+                    @(_loading ? "分析中..." : "分析依赖")
+                </MudButton>
+            </div>
+        </div>
+    </MudCardContent>
+</MudCard>
+
+@if (_graph != null)
+{
+    if (_graph.CircularDependencies.Any())
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4">
+            检测到 @_graph.CircularDependencies.Count 个循环依赖！
+            <MudList Class="mt-2">
+                @foreach (var cycle in _graph.CircularDependencies)
+                {
+                    <MudListItem>@cycle</MudListItem>
+                }
+            </MudList>
+        </MudAlert>
+    }
+
+    <MudGrid>
+        <MudItem xs="12" md="6">
+            <MudCard>
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">配置节点 (@_graph.Nodes.Count)</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudList Dense="true">
+                        @foreach (var node in _graph.Nodes.OrderBy(x => x))
+                        {
+                            <MudListItem>
+                                <MudChip Size="Size.Small" Color="Color.Primary" Class="mr-2">
+                                    @GetDependencyCount(node)
+                                </MudChip>
+                                <MudText>@node</MudText>
+                            </MudListItem>
+                        }
+                    </MudList>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudCard>
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">依赖关系 (@_graph.Edges.Count)</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudList Dense="true">
+                        @foreach (var edge in _graph.Edges.OrderBy(x => x.SourceKey))
+                        {
+                            <MudListItem>
+                                <MudText>
+                                    <MudChip Size="Size.Small" Color="Color.Info">@edge.SourceKey</MudText>
+                                    <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Class="mx-1" />
+                                    <MudChip Size="Size.Small" Color="Color.Secondary">@edge.TargetKey</MudText>
+                                    <MudChip Size="Size.Small" Color="@(edge.Type == DependencyType.Circular ? Color.Error : Color.Default)" Class="ml-2">
+                                        @edge.Type
+                                    </MudChip>
+                                </MudText>
+                            </MudListItem>
+                        }
+                    </MudList>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+
+    <MudCard Class="mt-4">
+        <MudCardHeader>
+            <CardHeaderContent>
+                <MudText Typo="Typo.h6">孤立配置（无依赖）</MudText>
+            </CardHeaderContent>
+        </MudCardHeader>
+        <MudCardContent>
+            <MudList Dense="true">
+                @foreach (var node in _graph.Nodes.Where(n => !_graph.Edges.Any(e => e.SourceKey == n || e.TargetKey == n)).OrderBy(x => x))
+                {
+                    <MudListItem>
+                        <MudIcon Icon="@Icons.Material.Filled.Block" Class="mr-2" Color="Color.Disabled" />
+                        <MudText>@node</MudText>
+                    </MudListItem>
+                }
+                @if (!_graph.Nodes.Any(n => !_graph.Edges.Any(e => e.SourceKey == n || e.TargetKey == n)))
+                {
+                    <MudListItem>
+                        <MudText Typo="Typo.body2" Class="text-muted">没有孤立配置</MudText>
+                    </MudListItem>
+                }
+            </MudList>
+        </MudCardContent>
+    </MudCard>
+}
+else if (_loading)
+{
+    <MudSkeleton Height="400px" />
+}
+
+@code {
+    private EnvironmentType _environment = EnvironmentType.Dev;
+    private DependencyGraphDto? _graph;
+    private bool _loading;
+
+    private async Task Analyze()
+    {
+        _loading = true;
+        try
+        {
+            _graph = await DependencyAnalyzer.AnalyzeAsync(_environment);
+            Snackbar.Add($"分析完成：{_graph.Nodes.Count} 个节点，{_graph.Edges.Count} 条依赖", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"分析失败: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private int GetDependencyCount(string key)
+    {
+        return _graph?.Edges.Count(e => e.SourceKey == key || e.TargetKey == key) ?? 0;
+    }
+}
