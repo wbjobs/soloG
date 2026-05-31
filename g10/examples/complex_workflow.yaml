@@ -1,0 +1,97 @@
+name: complex-orchestration-workflow
+version: "1.0"
+description: "A complex workflow demonstrating all features: conditions, parallel, retry"
+
+variables:
+  api_base: "https://jsonplaceholder.typicode.com"
+  environment: "production"
+  max_retries: 3
+
+steps:
+  - id: init
+    type: noop
+    name: Initialize Workflow
+    description: Initialization step
+
+  - id: check_env
+    type: condition
+    name: Check Environment
+    description: Check if we're in production
+    depends_on:
+      - init
+    condition: "context['variables']['environment'] == 'production'"
+    then:
+      - id: prod_setup
+        type: noop
+        name: Production Setup
+        description: Production environment setup
+      - id: fetch_prod_data
+        type: http
+        name: Fetch Production Data
+        method: GET
+        url: "${variables.api_base}/posts/1"
+    else:
+      - id: dev_setup
+        type: noop
+        name: Development Setup
+        description: Development environment setup
+
+  - id: parallel_tasks
+    type: parallel
+    name: Parallel Data Fetching
+    description: Fetch multiple resources in parallel
+    depends_on:
+      - check_env
+    branches:
+      - name: fetch_users
+        steps:
+          - id: get_users
+            type: http
+            name: Get Users
+            method: GET
+            url: "${variables.api_base}/users"
+            timeout: 10
+      - name: fetch_comments
+        steps:
+          - id: get_comments
+            type: http
+            name: Get Comments
+            method: GET
+            url: "${variables.api_base}/comments?postId=1"
+            timeout: 10
+      - name: fetch_albums
+        steps:
+          - id: get_albums
+            type: http
+            name: Get Albums
+            method: GET
+            url: "${variables.api_base}/albums?userId=1"
+            timeout: 10
+
+  - id: unreliable_api_call
+    type: retry
+    name: Retryable API Call
+    description: Call an API with retry logic
+    depends_on:
+      - parallel_tasks
+    max_attempts: 3
+    delay_seconds: 2
+    step:
+      id: create_post
+      type: http
+      name: Create Post
+      method: POST
+      url: "${variables.api_base}/posts"
+      headers:
+        Content-Type: application/json
+      body:
+        title: "Test Post"
+        body: "This is a test post created by the orchestrator"
+        userId: 1
+
+  - id: finalize
+    type: noop
+    name: Finalize Workflow
+    description: Clean up and finalize
+    depends_on:
+      - unreliable_api_call

@@ -1,0 +1,35 @@
+name: simple-api-workflow
+version: "1.0"
+description: A simple workflow demonstrating HTTP calls and DAG execution
+
+variables:
+  base_url: "https://jsonplaceholder.typicode.com"
+  user_id: 1
+
+steps:
+  - id: fetch_user
+    type: http
+    name: Fetch User Data
+    description: Fetch user information from API
+    method: GET
+    url: "${variables.base_url}/users/${variables.user_id}"
+    headers:
+      Content-Type: application/json
+
+  - id: fetch_posts
+    type: http
+    name: Fetch User Posts
+    description: Fetch all posts for the user
+    depends_on:
+      - fetch_user
+    method: GET
+    url: "${variables.base_url}/posts"
+    query_params:
+      userId: "${variables.user_id}"
+
+  - id: process_data
+    type: noop
+    name: Process Data
+    description: Process the fetched data
+    depends_on:
+      - fetch_posts

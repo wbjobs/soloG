@@ -1,0 +1,70 @@
+name: retry-safety-demo
+version: "1.0"
+description: "Demonstration of safe retry mechanism for idempotent interfaces"
+
+variables:
+  api_base: "https://jsonplaceholder.typicode.com"
+  order_id: "ORDER-2026-001"
+
+steps:
+  - id: fetch_user
+    type: http
+    name: Fetch User Data
+    method: GET
+    url: "${variables.api_base}/users/1"
+
+  - id: create_post_safe
+    type: retry
+    name: Create Post (Safe Retry)
+    description: "This retry will stop if error is not safe to retry (e.g., 409 Conflict)"
+    depends_on:
+      - fetch_user
+    max_attempts: 3
+    delay_seconds: 1
+    allow_unsafe_retries: false
+    retry_on_status_codes:
+      - 408
+      - 429
+      - 500
+      - 502
+      - 503
+      - 504
+    retry_on_exceptions:
+      - connection_error
+      - timeout
+      - request_exception
+    step:
+      id: create_post_http
+      type: http
+      name: Create Post API
+      method: POST
+      url: "${variables.api_base}/posts"
+      idempotency_key: "${variables.order_id}"
+      headers:
+        Content-Type: application/json
+      body:
+        title: "Safe Retry Demo Post"
+        body: "This post uses idempotency key for safe retries"
+        userId: 1
+
+  - id: aggressive_retry
+    type: retry
+    name: Aggressive Retry (Not Recommended)
+    description: "This will retry on all errors, including unsafe ones (use with caution)"
+    depends_on:
+      - create_post_safe
+    max_attempts: 2
+    delay_seconds: 1
+    allow_unsafe_retries: true
+    step:
+      id: aggressive_http
+      type: http
+      name: Aggressive HTTP Call
+      method: GET
+      url: "${variables.api_base}/posts/1"
+
+  - id: finalize
+    type: noop
+    name: Finalize
+    depends_on:
+      - aggressive_retry
